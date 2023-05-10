@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+gl = "*"
+gl_loader = "*"
 piston = "*"
 piston2d-graphics = "*"
 pistoncore-glutin_window = "*"
 piston2d-opengl_graphics = "*"
-piston-gfx_texture = "*"
-image = "*"
-gl = "*"
+png = "*"

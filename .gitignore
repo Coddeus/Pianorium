@@ -11,6 +11,7 @@ Cargo.lock
 
 # Result 
 /images
+*.mp4
 
 # Flamegraphs
 *.svg
