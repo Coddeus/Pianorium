@@ -14,9 +14,8 @@ use piston::window::WindowSettings;
 use gl::types::*;
 use png::Encoder;
 use std::fs::File;
-use std::io::{BufWriter};
-use std::thread;
-use std::process::{Command};
+use std::io::{BufWriter, Write};
+use std::process::{Command, Stdio};
 
 const WIDTH: u32 = 1920; 
 const HEIGHT: u32 = 1080; 
@@ -56,7 +55,61 @@ impl App {
     }
 }
 
-fn save_frame(frame_counter: &mut u32) {
+// fn save_frame(frame_counter: &mut u32) {
+//     let mut pixel_data: Vec<u8> = vec![0; ALL];
+// 
+//     unsafe {
+//         gl::ReadBuffer(gl::FRONT);
+//         gl::ReadPixels(
+//             0,
+//             0,
+//             WIDTH as GLint,
+//             HEIGHT as GLint,
+//             gl::RGBA,
+//             gl::UNSIGNED_BYTE,
+//             pixel_data.as_mut_ptr() as *mut GLvoid,
+//         );
+//     }
+//     
+//     let filename = format!("images/frame_{:010}.png", frame_counter);
+//     {
+//         let file = File::create(filename).unwrap();
+//         let ref mut w = BufWriter::new(file);
+//         let mut encoder = Encoder::new(w, WIDTH, HEIGHT);
+//         encoder.set_color(png::ColorType::Rgba);
+//         encoder.set_depth(png::BitDepth::Eight);
+//         let mut writer = encoder.write_header().unwrap();
+//         writer.write_image_data(&pixel_data).unwrap();
+//     };
+// 
+//     println!("Saving frame: {}", frame_counter);
+//     *frame_counter += 1;
+// 
+// }
+// raw data to video (1 frame) via ffmpeg pipe => concat video to main video.
+fn render_ffmpeg() {
+    // let ffmpeg = Command::new("ffmpeg")
+    //     .arg("-y")
+    //     .arg("-r")
+    //     .arg("60")
+    //     .arg("-s")
+    //     .arg(format!("{}x{}", WIDTH, HEIGHT))
+    //     .arg("-f")
+    //     .arg("image2")
+    //     .arg("-i")
+    //     .arg("./images/frame_%10d.png")
+    //     .arg("-c:v")
+    //     .arg("libx264")
+    //     .arg("-pix_fmt")
+    //     .arg("rgba")
+    //     .arg("-crf")
+    //     .arg("20")
+    //     .arg("-preset")
+    //     .arg("fast")
+    //     .arg("output.mp4")
+    //     .output()
+    //     .expect("Failed to start FFmpeg");
+
     let mut pixel_data: Vec<u8> = vec![0; ALL];
 
     unsafe {
@@ -71,56 +124,80 @@ fn save_frame(frame_counter: &mut u32) {
             pixel_data.as_mut_ptr() as *mut GLvoid,
         );
     }
-    
-    let filename = format!("images/frame_{:010}.png", frame_counter);
-    thread::spawn(move ||{
-        let file = File::create(filename).unwrap();
-        let ref mut w = BufWriter::new(file);
-        let mut encoder = Encoder::new(w, WIDTH, HEIGHT);
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        let mut writer = encoder.write_header().unwrap();
-        writer.write_image_data(&pixel_data).unwrap();
-    });
-
-    println!("Saving frame: {}", frame_counter);
-    *frame_counter += 1;
-
-}
-
-fn render_ffmpeg() {
-    let ffmpeg = Command::new("ffmpeg")
-        .arg("-y")
-        .arg("-s")
-        .arg(format!("{}x{}", WIDTH, HEIGHT))
-        .arg("-r")
-        .arg("60")
+    let mut ffmpeg = Command::new("ffmpeg")
+        .arg("-loglevel")
+        .arg("quiet")
         .arg("-f")
-        .arg("image2")
-        .arg("-i")
-        .arg("./images/frame_%10d.png")
-        .arg("-c:v")
-        .arg("libx264")
+        .arg("rawvideo")
         .arg("-pix_fmt")
         .arg("rgba")
-        .arg("-crf")
-        .arg("20")
-        .arg("-preset")
-        .arg("fast")
-        .arg("output.mp4")
-        .output()
-        .expect("Failed to start FFmpeg");
+        .arg("-s")
+        .arg(format!("{}x{}", WIDTH, HEIGHT))
+        .arg("-i")
+        .arg("-")
+        .arg("-c:v")
+        .arg("libvpx-vp9")
+        .arg("-r")
+        .arg("1")
+        .arg("-frames:v")
+        .arg("1")
+        .arg("-y")
+        .arg("temp.webm")
+        .stdin(Stdio::piped())
+        .spawn()
+        .expect("Failed to start ffmpeg");
 
-    if ffmpeg.status.success() {
-        println!("Done!")
-    } else {
-        // Print error
-        let err = String::from_utf8_lossy(&ffmpeg.stderr);
-        println!("FFmpeg failed: {}", err);
+    if let Some(ref mut stdin) = ffmpeg.stdin {
+        stdin.write_all(&pixel_data)
+            .expect("Failed to write to stdin");
     }
+
+    Command::new("ffmpeg")
+        .arg("-loglevel")
+        .arg("quiet")
+        .arg("-i")
+        .arg(format!("concat:{}|{}", "output.webm", "temp.webm"))
+        .arg("-c")
+        .arg("copy")
+        .arg("-y")  // Overwrite output file if it exists
+        .arg("output.webm")
+        .output()
+        .expect("Failed to execute ffmpeg");
+
+
 }
 
 fn main() {
+    // Create the needed files for ffmpeg
+    File::create("temp.webm")
+    .expect("Error encountered while creating temp file.");
+    File::create("output.webm")
+    .expect("Error encountered while creating output file!");
+
+    // TODO
+    // Command::new("ffmpeg")
+    //     .arg("-loglevel")
+    //     .arg("quiet")
+    //     .arg("-f")
+    //     .arg("rawvideo")
+    //     .arg("-pix_fmt")
+    //     .arg("rgba")
+    //     .arg("-s")
+    //     .arg(format!("{}x{}", WIDTH, HEIGHT))
+    //     .arg("-i")
+    //     .arg("-")
+    //     .arg("-c:v")
+    //     .arg("libvpx-vp9")
+    //     .arg("-r")
+    //     .arg("1")
+    //     .arg("-frames:v")
+    //     .arg("1")
+    //     .arg("-y")
+    //     .arg("output.webm")
+    //     .stdin(Stdio::piped())
+    //     .spawn()
+    //     .expect("Failed to start ffmpeg");
+
     let opengl = OpenGL::V3_3;
 
     // Create a Glutin window.
@@ -145,13 +222,14 @@ fn main() {
     while let Some(e) = events.next(&mut window) {
         if let Some(args) = e.render_args() {
             app.render(&args);
-            // render_ffmpeg();
-            save_frame(&mut frame_counter);
+            render_ffmpeg();
+            // save_frame(&mut frame_counter);
+            println!("Saving frame: {}", frame_counter);
+            frame_counter += 1;
         }
 
         if let Some(args) = e.update_args() {
             app.update(&args);
         }
     }
-    render_ffmpeg();
 }
