@@ -13,7 +13,7 @@ Cargo.lock
 /images
 *.mp4
 *.webm
-concat.txt
+index.txt
 
 # Flamegraphs
 *.svg
