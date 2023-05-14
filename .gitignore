@@ -17,3 +17,7 @@ index.txt
 
 # Flamegraphs
 *.svg
+
+# Personal
+temp.txt
+temp.rs
