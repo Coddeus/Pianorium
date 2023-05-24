@@ -11,6 +11,7 @@ Cargo.lock
 
 # Result 
 /images
+/temp
 *.mp4
 *.webm
 index.txt
