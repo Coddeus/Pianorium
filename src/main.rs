@@ -7,7 +7,8 @@ extern crate gl;
 extern crate sdl2;
 extern crate num_cpus;
 
-pub mod render_gl;
+pub mod shaders;
+pub mod setup;
 
 fn concat_output() {
     Command::new("ffmpeg")
@@ -47,7 +48,7 @@ fn main() {
     gl_attr.set_context_version(3, 3);
 
     // TODO display window ? => if not: good perf [might choose to use only fbo => current state ; but tex not read]
-    let window = video_subsystem
+    let window: sdl2::video::Window = video_subsystem
         .window("Pianorium", 900, 700)
         .opengl()
         .build()
@@ -63,12 +64,12 @@ fn main() {
     use std::ffi::CString;
 
     let vert_shader =
-        render_gl::Shader::from_vert_source(&CString::new(include_str!(".vert")).unwrap()).unwrap();
+        shaders::Shader::from_vert_source(&CString::new(include_str!(".vert")).unwrap()).unwrap();
 
     let frag_shader =
-    render_gl::Shader::from_frag_source(&CString::new(include_str!(".frag")).unwrap()).unwrap();
+    shaders::Shader::from_frag_source(&CString::new(include_str!(".frag")).unwrap()).unwrap();
     
-    let shader_program = render_gl::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
+    let shader_program = shaders::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
     shader_program.set_used();
 
 
@@ -83,26 +84,27 @@ fn main() {
 
     
     let mut vao: gl::types::GLuint = 0;
-    let mut vbo: gl::types::GLuint = 0;
+    let mut vbos: Vec<gl::types::GLuint> = vec![0 ; cores];
     let mut fbo: gl::types::GLuint = 0;
     let mut texture: gl::types::GLuint = 0;
 
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
-        gl::GenBuffers(1, &mut vbo);
+        for mut vbo in vbos { gl::GenBuffers(1,  &mut vbo); }
         gl::GenBuffers(1, &mut fbo);
         gl::GenTextures(1, &mut texture);
     }
 
     unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-            vertices.as_ptr() as *const gl::types::GLvoid,
-            gl::STATIC_DRAW,
-        );
-
+        for mut vbo in vbos { 
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+                vertices.as_ptr() as *const gl::types::GLvoid,
+                gl::STATIC_DRAW,
+            );
+        }
 
         gl::BindVertexArray(vao);
         gl::EnableVertexAttribArray(0);
@@ -162,17 +164,18 @@ fn main() {
     let mut i: u32 = 0;
     let mut event_pump = sdl.event_pump().unwrap();
 
-    'main: loop {
+    'main: while i<100 {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
                 _ => {}
             }
         }
-
-
-
+        
+        
+        
         unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbos[i as usize % cores]);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             gl::BindVertexArray(vao);
@@ -242,22 +245,6 @@ fn main() {
         println!("Frame {i} generated!");
         i += 1;
     }
-    
-    
-
-    unsafe {
-        gl::BindVertexArray(0);
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-        gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-        gl::BindTexture(gl::TEXTURE_2D, 0);
-    }
-
-    unsafe {
-        gl::DeleteVertexArrays(1, &vao);
-        gl::DeleteBuffers(1, &vbo);
-        gl::DeleteFramebuffers(1, &fbo);
-        gl::DeleteTextures(1, &texture);
-    }
 
     concat_output();
 }
@@ -311,12 +298,12 @@ fn main() {
 
 //     use std::ffi::CString;
 //     let vert_shader =
-//         render_gl::Shader::from_vert_source(&CString::new(include_str!(".vert")).unwrap()).unwrap();
+//         shaders::Shader::from_vert_source(&CString::new(include_str!(".vert")).unwrap()).unwrap();
 
 //     let frag_shader =
-//         render_gl::Shader::from_frag_source(&CString::new(include_str!(".frag")).unwrap()).unwrap();
+//         shaders::Shader::from_frag_source(&CString::new(include_str!(".frag")).unwrap()).unwrap();
 
-//     let shader_program = render_gl::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
+//     let shader_program = shaders::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
 
 //     // set up vertex buffer object
 
