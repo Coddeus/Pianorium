@@ -1,7 +1,7 @@
 use crate::opengl::OpenGL;
 
 impl OpenGL {
-    pub fn setup_vao(&mut self) -> &Self {
+    pub fn setup_vao(mut self) -> Self {
         unsafe {
             gl::GenVertexArrays(1, &mut self.vao);
 
@@ -30,11 +30,11 @@ impl OpenGL {
         self
     }
 
-    pub fn setup_buffers(&mut self) -> &Self {
+    pub fn setup_buffers(mut self) -> Self {
         unsafe {
             for vbo in self.buffers.iter_mut() {
                 gl::GenBuffers(1, vbo);
-                gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+                gl::BindBuffer(gl::ARRAY_BUFFER, *vbo);
                 gl::BufferData(
                     gl::ARRAY_BUFFER,
                     (self.vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
@@ -46,7 +46,7 @@ impl OpenGL {
         self
     }
 
-    pub fn setup_context(&mut self) -> &Self {
+    pub fn setup_context(self) -> Self {
         unsafe {
             gl::Viewport(0, 0, 900, 700);
             gl::ClearColor(0.3, 0.3, 0.5, 1.0);
@@ -55,12 +55,11 @@ impl OpenGL {
         self
     }
 
-    pub fn draw(&mut self, modulo: usize) {
+    pub fn draw(&self, modulo: usize) {
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.buffers[modulo]);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
-        self.window.gl_swap_window();
     }
 }

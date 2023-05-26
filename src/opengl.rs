@@ -17,6 +17,7 @@ pub struct OpenGL {
     pub vertices: Vec<f32>,
     pub vao: gl::types::GLuint,
     pub buffers: Vec<gl::types::GLuint>,
+    // pub handles: Vec<std::thread::JoinHandle<()>>,
     pub window: sdl2::video::Window,
 }
 
@@ -36,7 +37,7 @@ impl OpenGL {
         let vao: gl::types::GLuint = 0;
         let buffers: Vec<gl::types::GLuint> = vec![0 ; cores];
 
-        *OpenGL {
+        OpenGL {
             width,
             height,
             bytes,
@@ -56,7 +57,7 @@ impl OpenGL {
             .setup_context()
     }
     
-    pub fn setup_fs(&self) -> &Self{
+    pub fn setup_fs(self) -> Self {
         match remove_dir_all("temp"){
             _ => {}
         };
@@ -70,7 +71,7 @@ impl OpenGL {
         };
     }
     
-    pub fn create_program(&self) -> &Self {
+    pub fn create_program(self) -> Self {
         use std::ffi::CString;
 
         let vert_shader =

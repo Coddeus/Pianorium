@@ -36,6 +36,7 @@ fn main() {
         let modulo = ogl.frame % ogl.cores;
         ogl.draw(modulo);
         ogl.export(modulo);
+        ogl.window.gl_swap_window();
         
         println!("Frame {} generated!", ogl.frame);
         ogl.frame += 1;
