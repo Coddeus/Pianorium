@@ -1,23 +1,9 @@
-use crate::opengl::OpenGL;
-
 use std::process::{Command, Stdio};
 use std::io::Write;
 
-impl OpenGL {
-    pub fn export(&mut self, modulo: usize) {
-        unsafe {
-            gl::ReadPixels(
-                0,
-                0,
-                900,
-                700,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                self.data[modulo].as_mut_ptr() as *mut gl::types::GLvoid,
-            );
-        }
-
-        let name = format!("temp/{:010}.mp4", self.frame);
+impl crate::opengl::OpenGLContext {
+    pub fn export(&self, frame: usize) {
+        let name = format!("temp/{:010}.mp4", frame);
         let filename = name.as_str();
 
         let mut ffmpeg = Command::new("ffmpeg")
@@ -29,7 +15,7 @@ impl OpenGL {
             .arg("-r")
             .arg("60")
             .arg("-pix_fmt")
-            .arg("rgba")
+            .arg("bgra")
             .arg("-s")
             .arg(format!("{}x{}", 900, 700))
             .arg("-i")
@@ -46,13 +32,13 @@ impl OpenGL {
             .unwrap();
 
         if let Some(ref mut stdin) = ffmpeg.stdin {
-            stdin.write_all(&self.data[modulo]).unwrap();
+            stdin.write_all(&self.data).unwrap();
         }
-
-        writeln!(self.index, "file {}", filename).unwrap();
     }
+}
 
-    pub fn concat_output() {
+impl crate::opengl::OpenGL {
+    pub fn concat_output(&self) -> &Self{
         Command::new("ffmpeg")
             .env("FFREPORT", "file=ffconcat.log:level=56")
             .arg("-loglevel")
@@ -69,5 +55,6 @@ impl OpenGL {
             .unwrap();
     
         println!("\n✨ Fresh video generated! ✨\n");
+        self
     }
 }

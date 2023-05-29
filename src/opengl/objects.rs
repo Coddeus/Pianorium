@@ -1,6 +1,6 @@
-use crate::opengl::OpenGL;
+use crate::opengl::OpenGLContext;
 
-impl OpenGL {
+impl OpenGLContext {
     pub fn setup_vao(mut self) -> Self {
         unsafe {
             gl::GenVertexArrays(1, &mut self.vao);
@@ -30,18 +30,16 @@ impl OpenGL {
         self
     }
 
-    pub fn setup_buffers(mut self) -> Self {
+    pub fn setup_buffer(mut self) -> Self {
         unsafe {
-            for vbo in self.buffers.iter_mut() {
-                gl::GenBuffers(1, vbo);
-                gl::BindBuffer(gl::ARRAY_BUFFER, *vbo);
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    (self.vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                    self.vertices.as_ptr() as *const gl::types::GLvoid,
-                    gl::DYNAMIC_DRAW,
-                );
-            }
+            gl::GenBuffers(1, &mut self.buffer);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.buffer);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (self.vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+                self.vertices.as_ptr() as *const gl::types::GLvoid,
+                gl::DYNAMIC_DRAW,
+            );
         }
         self
     }
@@ -55,11 +53,27 @@ impl OpenGL {
         self
     }
 
-    pub fn draw(&self, modulo: usize) {
+    pub fn draw(&mut self) -> &mut Self {
         unsafe {
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.buffers[modulo]);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.buffer);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
+        self
+    }
+
+    pub fn read(&mut self) -> &mut Self {
+        unsafe {
+            gl::ReadPixels(
+                0,
+                0,
+                900,
+                700,
+                gl::BGRA,
+                gl::UNSIGNED_BYTE,
+                self.data.as_mut_ptr() as *mut gl::types::GLvoid,
+            );
+        }
+        self
     }
 }
