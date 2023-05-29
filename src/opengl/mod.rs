@@ -23,7 +23,7 @@ impl OpenGLContext {
             0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
             -0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
             0.0, 0.5, 0.0, 0.0, 0.0, 1.0,
-            ]; 
+        ]; 
         let vao: gl::types::GLuint = 0;
         let buffer: gl::types::GLuint = 0;
 
@@ -38,8 +38,8 @@ impl OpenGLContext {
 
     fn setup(self) -> Self{
         self
-            .setup_vao()
             .setup_buffer()
+            .setup_vao()
             .setup_context()
     }
 }
