@@ -1,6 +1,4 @@
-use crate::opengl::OpenGLContext;
-
-impl OpenGLContext {
+impl crate::opengl::OpenGLContext {
     pub fn setup_vao(mut self) -> Self {
         unsafe {
             gl::GenVertexArrays(1, &mut self.vao);
@@ -53,17 +51,16 @@ impl OpenGLContext {
         self
     }
 
-    pub fn draw(&mut self) -> &mut Self {
+    pub fn draw(&mut self) {
         unsafe {
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.buffer);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
-        self
     }
 
-    pub fn read(&mut self) -> &mut Self {
+    pub fn read(&mut self) {
         unsafe {
             gl::ReadPixels(
                 0,
@@ -75,6 +72,5 @@ impl OpenGLContext {
                 self.data.as_mut_ptr() as *mut gl::types::GLvoid,
             );
         }
-        self
     }
 }

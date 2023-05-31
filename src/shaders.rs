@@ -140,3 +140,13 @@ fn create_whitespace_cstring_with_len(len: usize) -> CString {
     buffer.extend([b' '].iter().cycle().take(len));
     unsafe { CString::from_vec_unchecked(buffer) }
 }
+
+pub fn setup_shader_program() {
+    let vert_shader =
+        Shader::from_vert_source(&CString::new(include_str!("opengl/.vert")).unwrap()).unwrap();
+    let frag_shader =
+        Shader::from_frag_source(&CString::new(include_str!("opengl/.frag")).unwrap()).unwrap();
+
+    let shader_program = Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
+    shader_program.set_used();
+}

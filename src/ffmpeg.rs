@@ -2,8 +2,8 @@ use std::process::{Command, Stdio};
 use std::io::Write;
 
 impl crate::opengl::OpenGLContext {
-    pub fn export(&self, frame: usize) {
-        let name = format!("temp/{:010}.mp4", frame);
+    pub fn export(&self) {
+        let name = format!("temp/{:010}.mp4", self.frame);
         let filename = name.as_str();
 
         let mut ffmpeg = Command::new("ffmpeg")
@@ -37,24 +37,23 @@ impl crate::opengl::OpenGLContext {
     }
 }
 
-impl crate::opengl::OpenGL {
-    pub fn concat_output(&self) -> &Self{
-        Command::new("ffmpeg")
-            .env("FFREPORT", "file=ffconcat.log:level=56")
-            .arg("-loglevel")
-            .arg("0")
-            .arg("-f")
-            .arg("concat")
-            .arg("-i")
-            .arg("index.txt")
-            .arg("-c")
-            .arg("copy")
-            .arg("-y")
-            .arg("output.mp4")
-            .output()
-            .unwrap();
-    
-        println!("\n✨ Fresh video generated! ✨\n");
-        self
-    }
+pub fn concat_output() {
+    println!("\nConcatenating into one video…\n");
+
+    Command::new("ffmpeg")
+        .env("FFREPORT", "file=ffconcat.log:level=56")
+        .arg("-loglevel")
+        .arg("0")
+        .arg("-f")
+        .arg("concat")
+        .arg("-i")
+        .arg("index.txt")
+        .arg("-c")
+        .arg("copy")
+        .arg("-y")
+        .arg("output.mp4")
+        .output()
+        .unwrap();
+
+    println!("\n✨ Fresh video generated! ✨\n");
 }
