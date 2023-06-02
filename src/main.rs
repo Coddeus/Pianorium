@@ -8,16 +8,11 @@ pub mod ffmpeg;
 pub mod opengl;
 
 fn main() {
-    match remove_dir_all("temp"){
-        _ => {}
-    };
-
-    create_dir("temp").unwrap();
-
+    setup_fs();
     let mut index_file = File::create("index.txt").unwrap();
 
-    let width: usize = 900;
-    let height: usize = 700;
+    let width: usize = 100;
+    let height: usize = 100;
 
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
@@ -26,8 +21,7 @@ fn main() {
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(3, 3);
     gl_attr.set_double_buffer(true);
-    gl_attr.set_multisample_samples(1);
-    gl_attr.set_multisample_samples(10);
+    gl_attr.set_multisample_samples(6);
 
     // TODO display window ? => if not: good perf [might choose to use only fbo => current state ; but tex not read]
     let window = video_subsystem
@@ -78,6 +72,13 @@ fn main() {
     teardown_fs();
 }
 
+fn setup_fs() {
+    match remove_dir_all("temp"){
+        _ => {}
+    };
+    create_dir("temp").unwrap();
+}
+
 fn teardown_fs() {
     match remove_dir_all("temp"){
         _ => {}
@@ -85,5 +86,4 @@ fn teardown_fs() {
     // index.txt
     // ffreport.log
     // ffconcat.log
-
 }

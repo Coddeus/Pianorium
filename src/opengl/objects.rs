@@ -44,7 +44,7 @@ impl crate::opengl::OpenGLContext {
 
     pub fn setup_context(self) -> Self {
         unsafe {
-            gl::Viewport(0, 0, 900, 700);
+            gl::Viewport(0, 0, self.width as i32, self.height as i32);
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }
@@ -65,8 +65,8 @@ impl crate::opengl::OpenGLContext {
             gl::ReadPixels(
                 0,
                 0,
-                900,
-                700,
+                self.width as i32,
+                self.height as i32,
                 gl::BGRA,
                 gl::UNSIGNED_BYTE,
                 self.data.as_mut_ptr() as *mut gl::types::GLvoid,

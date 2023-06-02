@@ -17,7 +17,7 @@ impl crate::opengl::OpenGLContext {
             .arg("-pix_fmt")
             .arg("bgra")
             .arg("-s")
-            .arg(format!("{}x{}", 900, 700))
+            .arg(format!("{}x{}", self.width, self.height))
             .arg("-i")
             .arg("-")
             .arg("-vcodec")
