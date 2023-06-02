@@ -25,18 +25,24 @@ fn main() {
     let gl_attr = video_subsystem.gl_attr();
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(3, 3);
+    gl_attr.set_double_buffer(true);
+    gl_attr.set_multisample_samples(1);
+    gl_attr.set_multisample_samples(10);
 
     // TODO display window ? => if not: good perf [might choose to use only fbo => current state ; but tex not read]
     let window = video_subsystem
         .window("Pianorium", width as u32, height as u32)
         .opengl()
-        .hidden()
         .build()
         .unwrap();
 
     let _gl_context = window.gl_create_context().unwrap();
     let _gl =
         gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
+
+    unsafe {
+        gl::Enable(gl::MULTISAMPLE);
+    }
 
     let mut ogl: opengl::OpenGLContext = opengl::OpenGLContext::new(width, height);
     let mut event_pump = sdl.event_pump().unwrap();

@@ -45,7 +45,7 @@ impl crate::opengl::OpenGLContext {
     pub fn setup_context(self) -> Self {
         unsafe {
             gl::Viewport(0, 0, 900, 700);
-            gl::ClearColor(0.3, 0.3, 0.5, 1.0);
+            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }
         self
