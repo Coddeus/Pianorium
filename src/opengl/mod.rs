@@ -1,8 +1,6 @@
 mod objects;
 mod shaders;
 
-use std::fs::{create_dir, remove_dir_all};
-
 extern crate gl;
 extern crate sdl2;
 
@@ -19,9 +17,8 @@ pub struct OpenGLContext {
 }
 
 impl OpenGLContext {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize, frame: usize) -> Self {
         let bytes: usize = width*height*4;
-        let frame: usize = 0;
         let data: Vec<u8> = vec![0 ; bytes];
         let vertices: Vec<f32> = vec![
             //  positions  |   colors
@@ -42,19 +39,10 @@ impl OpenGLContext {
             vao,
             buffer,
         }
-            .setup_fs()
             .create_program()
             .setup_buffer()
             .setup_vao()
             .setup_context()
-    }
-    
-    fn setup_fs(self) -> Self {
-        match remove_dir_all("temp"){
-            _ => {}
-        };
-        create_dir("temp").unwrap();
-        self
     }
     
     fn create_program(self) -> Self {

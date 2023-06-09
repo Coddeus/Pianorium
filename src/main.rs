@@ -1,6 +1,8 @@
 use std::fs::{create_dir, remove_dir_all, File};
 use std::io::Write;
 
+use opengl::OpenGLContext;
+
 extern crate gl;
 extern crate sdl2;
 
@@ -11,8 +13,9 @@ fn main() {
     setup_fs();
     let mut index_file = File::create("index.txt").unwrap();
 
-    let width: usize = 100;
-    let height: usize = 100;
+    let width: usize = 900;
+    let height: usize = 700;
+    let samples: u8 = 0;
 
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
@@ -21,7 +24,9 @@ fn main() {
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attr.set_context_version(3, 3);
     gl_attr.set_double_buffer(true);
-    gl_attr.set_multisample_samples(6);
+    if samples>1 {
+        gl_attr.set_multisample_samples(samples);
+    }
 
     // TODO display window ? => if not: good perf [might choose to use only fbo => current state ; but tex not read]
     let window = video_subsystem
@@ -32,16 +37,21 @@ fn main() {
 
     let _gl_context = window.gl_create_context().unwrap();
     let _gl =
-        gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
+    gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
 
-    unsafe {
-        gl::Enable(gl::MULTISAMPLE);
+    if samples>1 {
+        unsafe {
+            gl::Enable(gl::MULTISAMPLE);
+        }
     }
 
-    let mut ogl: opengl::OpenGLContext = opengl::OpenGLContext::new(width, height);
-    let mut event_pump = sdl.event_pump().unwrap();
+    let mut ogl: OpenGLContext = opengl::OpenGLContext::new(width, height, 0);
+    let mut ogl2: OpenGLContext = opengl::OpenGLContext::new(width, height, 1);
+    let mut handle1: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl});
+    let mut handle2: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl2});
 
-    'main: while ogl.frame < 200 {
+    let mut event_pump = sdl.event_pump().unwrap();
+    'main: while 5 < 100 {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
@@ -49,24 +59,37 @@ fn main() {
             }
         }
 
-        let mut ogl2: opengl::OpenGLContext = ogl.clone();
-
-        ogl2.draw();
-        ogl2.read();
+        
+        ogl = handle1.join().unwrap();
+        ogl.draw();
+        ogl.read();
         window.gl_swap_window();
-
-        std::thread::spawn(move ||{
-            ogl2.export();
-        });
-
+        ogl.frame += 2;
         let name: String = format!("temp/{:010}.mp4", ogl.frame);
         let filename: &str = name.as_str();
         writeln!(index_file, "file {}", filename).unwrap();
-
         println!("Frame {} generated!", ogl.frame);
-        ogl.frame += 1;
+        handle1 = std::thread::spawn(move ||{
+            ogl.export();
+            ogl
+        });
+        
+        ogl2 = handle2.join().unwrap();
+        ogl2.draw();
+        ogl2.read();
+        window.gl_swap_window();
+        ogl2.frame += 2;
+        let name: String = format!("temp/{:010}.mp4", ogl2.frame);
+        let filename: &str = name.as_str();
+        writeln!(index_file, "file {}", filename).unwrap();
+        println!("Frame {} generated!", ogl2.frame);
+        handle2 = std::thread::spawn(move ||{
+            ogl2.export();
+            ogl2
+        });
+        
+        
     }
-
     
     ffmpeg::concat_output(); // ≃1/4 of runtime
     teardown_fs();
