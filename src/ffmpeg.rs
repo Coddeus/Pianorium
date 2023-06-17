@@ -2,6 +2,20 @@ use std::process::{Command, Stdio};
 use std::io::Write;
 
 impl crate::opengl::OpenGLContext {
+    pub fn read(&mut self) {
+        unsafe {
+            gl::ReadPixels(
+                0,
+                0,
+                self.width as i32,
+                self.height as i32,
+                gl::BGRA,
+                gl::UNSIGNED_BYTE,
+                self.data.as_mut_ptr() as *mut gl::types::GLvoid,
+            );
+        }
+    }
+    
     pub fn export(&self) {
         let name = format!("temp/{:010}.mp4", self.frame);
         let filename = name.as_str();

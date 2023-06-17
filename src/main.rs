@@ -6,8 +6,10 @@ use opengl::OpenGLContext;
 extern crate gl;
 extern crate sdl2;
 
+pub mod drawing;
 pub mod ffmpeg;
 pub mod opengl;
+pub mod shaders;
 
 fn main() {
     setup_fs();
@@ -15,7 +17,7 @@ fn main() {
 
     let width: usize = 900;
     let height: usize = 700;
-    let samples: u8 = 0;
+    let samples: u8 = 6;
 
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
@@ -37,21 +39,24 @@ fn main() {
 
     let _gl_context = window.gl_create_context().unwrap();
     let _gl =
-    gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
+        gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
 
+    create_program();
+    
     if samples>1 {
         unsafe {
             gl::Enable(gl::MULTISAMPLE);
         }
     }
-
+    
     let mut ogl: OpenGLContext = opengl::OpenGLContext::new(width, height, 0);
     let mut ogl2: OpenGLContext = opengl::OpenGLContext::new(width, height, 1);
     let mut handle1: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl});
     let mut handle2: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl2});
 
+    let mut i = 0;
     let mut event_pump = sdl.event_pump().unwrap();
-    'main: while 5 < 100 {
+    'main: while i < 120 {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
@@ -64,13 +69,13 @@ fn main() {
         ogl.draw();
         ogl.read();
         window.gl_swap_window();
-        ogl.frame += 2;
         let name: String = format!("temp/{:010}.mp4", ogl.frame);
         let filename: &str = name.as_str();
         writeln!(index_file, "file {}", filename).unwrap();
         println!("Frame {} generated!", ogl.frame);
         handle1 = std::thread::spawn(move ||{
             ogl.export();
+            ogl.frame += 2;
             ogl
         });
         
@@ -78,21 +83,34 @@ fn main() {
         ogl2.draw();
         ogl2.read();
         window.gl_swap_window();
-        ogl2.frame += 2;
         let name: String = format!("temp/{:010}.mp4", ogl2.frame);
         let filename: &str = name.as_str();
         writeln!(index_file, "file {}", filename).unwrap();
         println!("Frame {} generated!", ogl2.frame);
         handle2 = std::thread::spawn(move ||{
             ogl2.export();
+            ogl2.frame += 2;
             ogl2
         });
         
-        
+        i+=2;
     }
     
     ffmpeg::concat_output(); // ≃1/4 of runtime
     teardown_fs();
+}
+    
+fn create_program() {
+    use std::ffi::CString;
+
+    let vert_shader =
+        shaders::Shader::from_vert_source(&CString::new(include_str!(".vert")).unwrap()).unwrap();
+
+    let frag_shader =
+        shaders::Shader::from_frag_source(&CString::new(include_str!(".frag")).unwrap()).unwrap();
+    
+    let shader_program = shaders::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
+    shader_program.set_used();
 }
 
 fn setup_fs() {

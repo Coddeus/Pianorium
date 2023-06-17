@@ -1,4 +1,49 @@
-impl crate::opengl::OpenGLContext {
+extern crate gl;
+extern crate sdl2;
+
+#[derive(Clone)]
+pub struct OpenGLContext {
+    pub width: usize,
+    pub height: usize,
+    pub bytes: usize,
+    pub frame: usize,
+    pub start: std::time::SystemTime,
+    pub data: Vec<u8>,
+    pub vertices: Vec<f32>,
+    pub vao: gl::types::GLuint,
+    pub buffer: gl::types::GLuint,
+}
+
+impl OpenGLContext {
+    pub fn new(width: usize, height: usize, frame: usize) -> Self {
+        let bytes: usize = width*height*4;
+        let start: std::time::SystemTime = std::time::SystemTime::now();
+        let data: Vec<u8> = vec![0 ; bytes];
+        let vertices: Vec<f32> = vec![
+            //  positions  |   colors
+            0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
+            -0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
+            0.0, 0.5, 0.0, 0.0, 0.0, 1.0,
+        ]; 
+        let vao: gl::types::GLuint = 0;
+        let buffer: gl::types::GLuint = 0;
+
+        OpenGLContext {
+            width,
+            height,
+            bytes,
+            frame,
+            start,
+            data,
+            vertices,
+            vao,
+            buffer,
+        }
+            .setup_buffer()
+            .setup_vao()
+            .setup_context()
+    }
+    
     pub fn setup_vao(mut self) -> Self {
         unsafe {
             gl::GenVertexArrays(1, &mut self.vao);
@@ -50,27 +95,16 @@ impl crate::opengl::OpenGLContext {
         }
         self
     }
+}
 
-    pub fn draw(&mut self) {
-        unsafe {
-            gl::BindVertexArray(self.vao);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.buffer);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
-        }
-    }
-
-    pub fn read(&mut self) {
-        unsafe {
-            gl::ReadPixels(
-                0,
-                0,
-                self.width as i32,
-                self.height as i32,
-                gl::BGRA,
-                gl::UNSIGNED_BYTE,
-                self.data.as_mut_ptr() as *mut gl::types::GLvoid,
-            );
+impl Drop for OpenGLContext{
+    fn drop(&mut self) {
+        unsafe { 
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+            
+            gl::DeleteBuffers(1, &self.buffer);
+            gl::DeleteVertexArrays(1, &self.vao);
         }
     }
 }
