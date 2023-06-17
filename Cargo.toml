@@ -6,4 +6,3 @@ edition = "2021"
 [dependencies]
 sdl2 = { version = "*", features = ["bundled", "static-link"] }
 gl = "*"
-num_cpus = "*"
