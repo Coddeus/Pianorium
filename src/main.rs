@@ -1,4 +1,4 @@
-use std::fs::{create_dir, remove_dir_all, File};
+use std::fs::{create_dir, remove_dir_all, remove_file, File};
 use std::io::Write;
 
 use opengl::OpenGLContext;
@@ -10,7 +10,7 @@ pub mod drawing;
 pub mod ffmpeg;
 pub mod opengl;
 pub mod shaders;
-
+                                                                
 fn main() {
     setup_fs();
     let mut index_file = File::create("index.txt").unwrap();
@@ -18,6 +18,7 @@ fn main() {
     let width: usize = 900;
     let height: usize = 700;
     let samples: u8 = 6;
+    let clear_dir: bool = true;
 
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
@@ -97,7 +98,7 @@ fn main() {
     }
     
     ffmpeg::concat_output(); // ≃1/4 of runtime
-    teardown_fs();
+    if clear_dir {teardown_fs();}
 }
     
 fn create_program() {
@@ -124,7 +125,7 @@ fn teardown_fs() {
     match remove_dir_all("temp"){
         _ => {}
     };
-    // index.txt
-    // ffreport.log
-    // ffconcat.log
+    remove_file("index.txt").unwrap();
+    remove_file("ffreport.log").unwrap();
+    remove_file("ffconcat.log").unwrap();
 }
