@@ -21,9 +21,9 @@ impl OpenGLContext {
         let data: Vec<u8> = vec![0 ; bytes];
         let vertices: Vec<f32> = vec![
             //  positions  |   colors
-            0.5, -0.5, 0.0, 1.0, 0.0, 0.0,
-            -0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
-            0.0, 0.5, 0.0, 0.0, 0.0, 1.0,
+            0.5, -0.5, 1.0, 0.0, 0.0,
+            -0.5, -0.5, 0.0, 1.0, 0.0,
+            0.0, 0.5, 0.0, 0.0, 1.0,
         ]; 
         let vao: gl::types::GLuint = 0;
         let buffer: gl::types::GLuint = 0;
@@ -53,10 +53,10 @@ impl OpenGLContext {
             gl::EnableVertexAttribArray(0);
             gl::VertexAttribPointer(
                 0,
-                3,
+                2,
                 gl::FLOAT,
                 gl::FALSE,
-                (6 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (5 * std::mem::size_of::<f32>()) as gl::types::GLint,
                 std::ptr::null(),
             );
 
@@ -66,8 +66,8 @@ impl OpenGLContext {
                 3,
                 gl::FLOAT,
                 gl::FALSE,
-                (6 * std::mem::size_of::<f32>()) as gl::types::GLint,
-                (3 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
+                (5 * std::mem::size_of::<f32>()) as gl::types::GLint,
+                (2 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
             );
         }
         self
