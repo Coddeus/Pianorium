@@ -20,10 +20,10 @@ impl OpenGLContext {
         let start: std::time::SystemTime = std::time::SystemTime::now();
         let data: Vec<u8> = vec![0 ; bytes];
         let vertices: Vec<f32> = vec![
-            //  positions  |   colors
-            0.5, -0.5, 1.0, 0.0, 0.0,
-            -0.5, -0.5, 0.0, 1.0, 0.0,
-            0.0, 0.5, 0.0, 0.0, 1.0,
+        //          positions         |    colors
+            0.5, -0.5-frame as f32/100., 1.0, 0.0, 0.0,
+            -0.5, -0.5-frame as f32/100., 0.0, 1.0, 0.0,
+            0.0, 0.5-frame as f32/100., 0.0, 0.0, 1.0,
         ]; 
         let vao: gl::types::GLuint = 0;
         let buffer: gl::types::GLuint = 0;
