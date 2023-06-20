@@ -17,7 +17,7 @@ fn main() {
 
     let width: usize = 900;
     let height: usize = 700;
-    let samples: u8 = 6;
+    let samples: u8 = 0;
     let clear_dir: bool = true;
 
     let sdl = sdl2::init().unwrap();
@@ -57,7 +57,7 @@ fn main() {
 
     let mut i = 0;
     let mut event_pump = sdl.event_pump().unwrap();
-    'main: while i < 120 {
+    'main: while i < 500 {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
@@ -73,7 +73,7 @@ fn main() {
         let name: String = format!("temp/{:010}.mp4", ogl.frame);
         let filename: &str = name.as_str();
         writeln!(index_file, "file {}", filename).unwrap();
-        println!("Frame {} generated!", ogl.frame);
+        println!("Frame {} generated!", i);
         handle1 = std::thread::spawn(move ||{
             ogl.export();
             ogl.frame += 2;
@@ -87,7 +87,7 @@ fn main() {
         let name: String = format!("temp/{:010}.mp4", ogl2.frame);
         let filename: &str = name.as_str();
         writeln!(index_file, "file {}", filename).unwrap();
-        println!("Frame {} generated!", ogl2.frame);
+        println!("Frame {} generated!", i+1);
         handle2 = std::thread::spawn(move ||{
             ogl2.export();
             ogl2.frame += 2;

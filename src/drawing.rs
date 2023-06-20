@@ -2,7 +2,7 @@ impl crate::OpenGLContext {
     pub fn draw(&mut self) {
         unsafe {
             gl::BindVertexArray(self.vao);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.buffer);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 (self.vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
@@ -19,7 +19,7 @@ impl crate::OpenGLContext {
             }
 
             gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl::DrawElements(gl::TRIANGLES, self.indices.len() as i32, gl::UNSIGNED_INT, 0 as *const _);
         }
     }
 }
