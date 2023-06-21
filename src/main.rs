@@ -15,8 +15,8 @@ fn main() {
     setup_fs();
     let mut index_file = File::create("index.txt").unwrap();
 
-    let width: usize = 900;
-    let height: usize = 700;
+    let width: usize = 1920/2;
+    let height: usize = 1080/2;
     let samples: u8 = 0;
     let clear_dir: bool = true;
 
@@ -42,8 +42,18 @@ fn main() {
     let _gl =
         gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
 
-    create_program();
-    
+    let shader: gl::types::GLuint = create_program();
+
+    let cname_utime: std::ffi::CString = std::ffi::CString::new("u_time").expect("CString::new failed");
+    let location_utime: gl::types::GLint;
+    let cname_uresolution: std::ffi::CString = std::ffi::CString::new("u_resolution").expect("CString::new failed");
+    let location_uresolution: gl::types::GLint;
+    unsafe {
+        location_utime = gl::GetUniformLocation(shader, cname_utime.as_ptr());
+        gl::Uniform1f(location_utime, 0.0);
+        location_uresolution = gl::GetUniformLocation(shader, cname_uresolution.as_ptr());
+        gl::Uniform2f(location_uresolution, width as f32, height as f32);
+    }
     if samples>1 {
         unsafe {
             gl::Enable(gl::MULTISAMPLE);
@@ -57,7 +67,7 @@ fn main() {
 
     let mut i = 0;
     let mut event_pump = sdl.event_pump().unwrap();
-    'main: while i < 500 {
+    'main: while i < 250 {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
@@ -67,6 +77,7 @@ fn main() {
 
         
         ogl = handle1.join().unwrap();
+        unsafe { gl::Uniform1f(location_utime, ogl.frame as f32/60.); }
         ogl.draw();
         ogl.read();
         window.gl_swap_window();
@@ -81,6 +92,7 @@ fn main() {
         });
         
         ogl2 = handle2.join().unwrap();
+        unsafe { gl::Uniform1f(location_utime, ogl2.frame as f32/60.); }
         ogl2.draw();
         ogl2.read();
         window.gl_swap_window();
@@ -101,7 +113,7 @@ fn main() {
     if clear_dir {teardown_fs();}
 }
     
-fn create_program() {
+fn create_program() -> gl::types::GLuint {
     use std::ffi::CString;
 
     let vert_shader =
@@ -112,6 +124,8 @@ fn create_program() {
     
     let shader_program = shaders::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
     shader_program.set_used();
+
+    shader_program.id()
 }
 
 fn setup_fs() {

@@ -5,10 +5,12 @@ layout (location = 1) in vec3 Color;
 
 out VS_OUTPUT {
     vec3 Color;
+    vec2 Position;
 } OUT;
 
 void main()
 {
     gl_Position = vec4(Position, 0.0, 1.0);
     OUT.Color = Color;
+    OUT.Position = Position;
 }

@@ -23,21 +23,28 @@ impl OpenGLContext {
         let data: Vec<u8> = vec![0 ; bytes];
 
         let mut vertices: Vec<f32> = vec![];
-        let mut indices: Vec<u32> = vec![
-        ];
+        let mut indices: Vec<u32> = vec![];
         for i in 0..89 {
+            println!("{}", i);
             let ver2: Vec<f32> = vec![
-                //          x                           y                         r    g    b
-                (i as f32-44.5)/44.5,  (-0.8+i as f32/25.)-frame as f32/100.,    1.0, 0.3, 0.3,
-                (i as f32-43.5)/44.5,  (-0.8+i as f32/25.)-frame as f32/100.,    0.0, 0.2, 0.2,
-                (i as f32-43.5)/44.5,  (-0.5+i as f32/25.)-frame as f32/100.,    1.0, 0.3, 0.3,
-                (i as f32-44.5)/44.5,  (-0.5+i as f32/25.)-frame as f32/100.,    0.0, 0.2, 0.2,
+                //          x                            y                         r    g    b
+                (i as f32-44.5)/44.5,  (-0.8 +i as f32/25.)-frame as f32/100.,    1.0, 1.0, 1.0,
+                (i as f32-43.5)/44.5,  (-0.8 +i as f32/25.)-frame as f32/100.,    1.0, 1.0, 1.0,
+                (i as f32-43.5)/44.5,  (-0.5 +i as f32/25.)-frame as f32/100.,    1.0, 1.0, 1.0,
+                (i as f32-44.5)/44.5,  (-0.5 +i as f32/25.)-frame as f32/100.,    1.0, 1.0, 1.0,
+                //          x                             y                         r    g    b
+                (i as f32-44.4)/44.5,  (-0.79 +i as f32/25.)-frame as f32/100.,    0.0, 0.0, 0.0,
+                (i as f32-43.6)/44.5,  (-0.79 +i as f32/25.)-frame as f32/100.,    0.0, 0.0, 0.0,
+                (i as f32-43.6)/44.5,  (-0.51 +i as f32/25.)-frame as f32/100.,    0.0, 0.0, 0.0,
+                (i as f32-44.4)/44.5,  (-0.51 +i as f32/25.)-frame as f32/100.,    0.0, 0.0, 0.0,
             ];
             vertices.extend(ver2);
-
+            
             let ind2: Vec<u32> = vec![
-                0+4*i, 1+4*i, 2+4*i,
-                0+4*i, 2+4*i, 3+4*i,
+                0+8*i, 2+8*i, 1+8*i,
+                0+8*i, 2+8*i, 3+8*i,
+                4+8*i, 6+8*i, 5+8*i,
+                4+8*i, 6+8*i, 7+8*i,
             ];
             indices.extend(ind2);
         }

@@ -54,6 +54,10 @@ impl Program {
         Ok(Program { id: program_id })
     }
 
+    pub fn id(&self) -> gl::types::GLuint {
+        self.id
+    }
+
     pub fn set_used(&self) {
         unsafe {
             gl::UseProgram(self.id);

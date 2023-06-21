@@ -10,6 +10,9 @@ impl crate::OpenGLContext {
                 gl::DYNAMIC_DRAW,
             );
 
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::DrawElements(gl::TRIANGLES, self.indices.len() as i32, gl::UNSIGNED_INT, 0 as *const _);
+
             for y in self.vertices
                 .iter_mut()
                 .skip(1)
@@ -17,9 +20,6 @@ impl crate::OpenGLContext {
             {
                 *y-=0.02;
             }
-
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::DrawElements(gl::TRIANGLES, self.indices.len() as i32, gl::UNSIGNED_INT, 0 as *const _);
         }
     }
 }
