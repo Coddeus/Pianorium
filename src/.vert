@@ -1,10 +1,10 @@
 #version 330 core
 
 layout (location = 0) in vec2 Position;
-layout (location = 1) in vec3 Color;
+layout (location = 1) in float Color;
 
 out VS_OUTPUT {
-    vec3 Color;
+    float Color;
     vec2 Position;
 } OUT;
 

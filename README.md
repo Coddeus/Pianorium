@@ -1,9 +1,9 @@
 # Pianorium
-![](screenshots/all_keys_2.png)  
+![](screenshots/all_keys_3.png)  
 A free and open-source midi visualizing tool, powered by OpenGL.
 
 ## Prerequisite
-FFmpeg on the system path.
+FFmpeg on the system path.  
 Enough space in memory for the video you want to create.
 
 ## What it should become

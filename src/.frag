@@ -1,7 +1,7 @@
 #version 330 core
 
 in VS_OUTPUT {
-    vec3 Color;
+    float Color;
     vec2 Position;
 } IN;
 out vec4 Color;
@@ -19,7 +19,7 @@ mat2 rotate(float angle)
 
 void main()
 {
-    if (IN.Color.x>0.8 && IN.Color.y>0.8 && IN.Color.z>0.8 ) {
+    if (IN.Color>0.5) {
         Color = vec4(1.0);
     } 
     else {  // Shader Art by lukasxl on ShaderToy

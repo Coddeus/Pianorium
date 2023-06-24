@@ -1,3 +1,5 @@
+pub const SPEED: f32 = 0.01;
+
 impl crate::OpenGLContext {
     pub fn draw(&mut self) {
         unsafe {
@@ -16,9 +18,9 @@ impl crate::OpenGLContext {
             for y in self.vertices
                 .iter_mut()
                 .skip(1)
-                .step_by(5) 
+                .step_by(3) 
             {
-                *y-=0.02;
+                *y-=2.*SPEED;
             }
         }
     }

@@ -8,6 +8,7 @@ extern crate sdl2;
 
 pub mod drawing;
 pub mod ffmpeg;
+pub mod midi;
 pub mod opengl;
 pub mod shaders;
                                                                 
@@ -54,6 +55,7 @@ fn main() {
         location_uresolution = gl::GetUniformLocation(shader, cname_uresolution.as_ptr());
         gl::Uniform2f(location_uresolution, width as f32, height as f32);
     }
+
     if samples>1 {
         unsafe {
             gl::Enable(gl::MULTISAMPLE);
@@ -67,7 +69,7 @@ fn main() {
 
     let mut i = 0;
     let mut event_pump = sdl.event_pump().unwrap();
-    'main: while i < 250 {
+    'main: while i < 125 {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
