@@ -1,4 +1,5 @@
 use crate::drawing::SPEED;
+use midly::{Smf, TrackEventKind::Midi, MidiMessage::{NoteOn, NoteOff}, num::{u7, u28}};
 
 const LAYOUT: [[f32 ; 2] ; 88] = [
     [-26./26., -25./26.],
@@ -100,10 +101,11 @@ const LAYOUT: [[f32 ; 2] ; 88] = [
 ]; // Look for LAYOUT[midinote-21]
 const BLACK: [u8 ; 36] = [1, 4, 6, 9, 11, 13, 16, 18, 21, 23, 25, 28, 30, 33, 35, 37, 40, 42, 45, 47, 49, 52, 54, 57, 59, 61, 64, 66, 69, 71, 73, 76, 78, 81, 83, 85];
 
+#[derive(Debug, Clone)]
 struct Note {
     note: u8,       // A0 is 21 ; C8 is 108
-    start: f32,
-    end: f32,
+    start: u32,
+    end: u32,
 }
 
 pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>) {
@@ -112,27 +114,72 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>) {
 
     let mut notes: Vec<Note> = vec![];
     let mut blacknotes: Vec<Note> = vec![];
-    for i in 0..88 {
-        if BLACK.contains(&i) {
-            blacknotes.push(Note {note: i, start: -0.3, end: 0.});
-        } else {
-            notes.push(Note {note: i, start: -0.5, end: 0.});
+    let mut active_notes: Vec<Option<Note>> = vec![None; 128];
+
+    let midi_file = Smf::parse(include_bytes!("../Never-Gonna-Give-You-Up.mid")).unwrap();
+
+    for track in midi_file.tracks.iter() {
+        let mut current_time: u32 = 0;
+        for event in track.iter() {
+            current_time += <u28 as Into<u32>>::into(event.delta);
+
+            if let Midi { channel: _, message } = event.kind {
+                match message {
+                    NoteOn { key, vel } => {
+                        if 20 < key && key < 109 {
+                            if vel > 0 {
+                                let note_obj = Note {
+                                    note: <u7 as Into<u8>>::into(key),
+                                    start: current_time,
+                                    end: 0,
+                                };
+                                active_notes[<u7 as Into<u8>>::into(key) as usize] = Some(note_obj);
+                            } else {
+                                if let Some(mut note_obj) = active_notes[<u7 as Into<u8>>::into(key) as usize].take() {
+                                    note_obj.end = current_time;
+                                    if BLACK.contains(&note_obj.note) {
+                                        blacknotes.push(note_obj);
+                                    } else {
+                                        notes.push(note_obj);
+                                    }
+                                    active_notes[<u7 as Into<u8>>::into(key) as usize] = None;
+                                }
+                            }
+                        }
+                    }
+                    NoteOff { key, vel: _ } => {
+                        if let Some(mut note_obj) = active_notes[<u7 as Into<u8>>::into(key) as usize].take() {
+                            note_obj.end = current_time;
+                            if BLACK.contains(&note_obj.note) {
+                                blacknotes.push(note_obj);
+                            } else {
+                                notes.push(note_obj);
+                            }
+                            active_notes[<u7 as Into<u8>>::into(key) as usize] = None;
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
     }
+
     notes.extend(blacknotes);
+
+
 
     for (i, n) in notes.iter().enumerate() {
         let ver2: Vec<f32> = vec![
-            //               x                        y            color  
-            LAYOUT[n.note as usize][0],         (n.start),          1.0,
-            LAYOUT[n.note as usize][1],         (n.start),          1.0,
-            LAYOUT[n.note as usize][1],         (n.end),            1.0,
-            LAYOUT[n.note as usize][0],         (n.end),            1.0,
-            //               x                        y            color
-            LAYOUT[n.note as usize][0]+0.004,   (n.start+0.004),    0.0,
-            LAYOUT[n.note as usize][1]-0.004,   (n.start+0.004),    0.0,
-            LAYOUT[n.note as usize][1]-0.004,   (n.end-0.004),      0.0,
-            LAYOUT[n.note as usize][0]+0.004,   (n.end-0.004),      0.0,
+             //               x                        y            color  
+             LAYOUT[n.note as usize-21][0],         (n.start as f32*SPEED/20.),          1.0,
+             LAYOUT[n.note as usize-21][1],         (n.start as f32*SPEED/20.),          1.0,
+             LAYOUT[n.note as usize-21][1],         (n.end as f32*SPEED/20.),            1.0,
+             LAYOUT[n.note as usize-21][0],         (n.end as f32*SPEED/20.),            1.0,
+             //               x                        y            color
+             LAYOUT[n.note as usize-21][0]+0.004,   (n.start as f32*SPEED/20.+0.004),    0.0,
+             LAYOUT[n.note as usize-21][1]-0.004,   (n.start as f32*SPEED/20.+0.004),    0.0,
+             LAYOUT[n.note as usize-21][1]-0.004,   (n.end as f32*SPEED/20.-0.004),      0.0,
+             LAYOUT[n.note as usize-21][0]+0.004,   (n.end as f32*SPEED/20.-0.004),      0.0,
         ];
         vertices.extend(ver2);
         
