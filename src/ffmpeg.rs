@@ -1,7 +1,7 @@
 use std::process::{Command, Stdio};
 use std::io::Write;
 
-impl crate::opengl::OpenGLContext {
+impl crate::OpenGLContext {
     pub fn read(&mut self) {
         unsafe {
             gl::ReadPixels(

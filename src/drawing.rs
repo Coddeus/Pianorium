@@ -1,4 +1,4 @@
-pub const SPEED: f32 = 0.01;
+pub const SPEED: f32 = 0.02; // Doesn't change the pace of the song, changes the visual speed of the rectangles (lower value => taller notes falling faster)
 
 impl crate::OpenGLContext {
     pub fn draw(&mut self) {

@@ -19,7 +19,7 @@ fn main() {
     let width: usize = 1920/2;
     let height: usize = 1080/2;
     let samples: u8 = 0;
-    let clear_dir: bool = true;
+    let clear_dir: bool = false;
 
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
@@ -69,7 +69,7 @@ fn main() {
 
     let mut i = 0;
     let mut event_pump = sdl.event_pump().unwrap();
-    'main: while i < 125 {
+    'main: while i < 10000 {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,

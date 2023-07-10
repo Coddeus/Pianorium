@@ -22,7 +22,10 @@ void main()
     if (IN.Color>0.5) {
         Color = vec4(1.0);
     } 
-    else {  // Shader Art by lukasxl on ShaderToy
+    else {  
+        Color = vec4(0.5+(IN.Position.x+1.0)/4.0, 0.1098, 0.1098, 1.0);
+
+        /* // Shader Art by lukasxl on ShaderToy
         vec2 uv = IN.Position.xy*vec2(u_resolution.x/u_resolution.y, 1.0); 
 
         vec4 result = vec4(0,0,0,1);
@@ -49,5 +52,6 @@ void main()
         result.xyz = 1. - result.xyz;
 
         Color = result * d;
+        */
     }
 }

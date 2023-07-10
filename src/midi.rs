@@ -116,7 +116,7 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>) {
     let mut blacknotes: Vec<Note> = vec![];
     let mut active_notes: Vec<Option<Note>> = vec![None; 128];
 
-    let midi_file = Smf::parse(include_bytes!("../Never-Gonna-Give-You-Up.mid")).unwrap();
+    let midi_file = Smf::parse(include_bytes!("../test.mid")).unwrap();
 
     for track in midi_file.tracks.iter() {
         let mut current_time: u32 = 0;
@@ -167,19 +167,20 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>) {
     notes.extend(blacknotes);
 
 
+    let tempo: f32 = 20.;
 
     for (i, n) in notes.iter().enumerate() {
         let ver2: Vec<f32> = vec![
-             //               x                        y            color  
-             LAYOUT[n.note as usize-21][0],         (n.start as f32*SPEED/20.),          1.0,
-             LAYOUT[n.note as usize-21][1],         (n.start as f32*SPEED/20.),          1.0,
-             LAYOUT[n.note as usize-21][1],         (n.end as f32*SPEED/20.),            1.0,
-             LAYOUT[n.note as usize-21][0],         (n.end as f32*SPEED/20.),            1.0,
-             //               x                        y            color
-             LAYOUT[n.note as usize-21][0]+0.004,   (n.start as f32*SPEED/20.+0.004),    0.0,
-             LAYOUT[n.note as usize-21][1]-0.004,   (n.start as f32*SPEED/20.+0.004),    0.0,
-             LAYOUT[n.note as usize-21][1]-0.004,   (n.end as f32*SPEED/20.-0.004),      0.0,
-             LAYOUT[n.note as usize-21][0]+0.004,   (n.end as f32*SPEED/20.-0.004),      0.0,
+             //               x                                     y                   color  
+             LAYOUT[n.note as usize-21][0],         (n.start as f32*SPEED/tempo),          1.0,
+             LAYOUT[n.note as usize-21][1],         (n.start as f32*SPEED/tempo),          1.0,
+             LAYOUT[n.note as usize-21][1],         (n.end as f32*SPEED/tempo),            1.0,
+             LAYOUT[n.note as usize-21][0],         (n.end as f32*SPEED/tempo),            1.0,
+             //               x                                     y                   color 
+             LAYOUT[n.note as usize-21][0]+0.004,   (n.start as f32*SPEED/tempo+0.004),    0.0,
+             LAYOUT[n.note as usize-21][1]-0.004,   (n.start as f32*SPEED/tempo+0.004),    0.0,
+             LAYOUT[n.note as usize-21][1]-0.004,   (n.end as f32*SPEED/tempo-0.004),      0.0,
+             LAYOUT[n.note as usize-21][0]+0.004,   (n.end as f32*SPEED/tempo-0.004),      0.0,
         ];
         vertices.extend(ver2);
         
