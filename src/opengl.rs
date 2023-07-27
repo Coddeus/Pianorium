@@ -9,6 +9,7 @@ pub struct OpenGLContext {
     pub height: usize,
     pub bytes: usize,
     pub frame: usize,
+    pub max_frame: usize,
     pub data: Vec<u8>,
 
     pub vertices: Vec<f32>,
@@ -24,7 +25,7 @@ impl OpenGLContext {
         let bytes: usize = width*height*4;
         let data: Vec<u8> = vec![0 ; bytes];
 
-        let (vertices, indices) = midi_to_vertices(frame);
+        let (vertices, indices, max_frame) = midi_to_vertices(frame);
 
         let vbo: gl::types::GLuint = 0;
         let vao: gl::types::GLuint = 0;
@@ -35,6 +36,7 @@ impl OpenGLContext {
             height,
             bytes,
             frame,
+            max_frame,
             data,
 
             vertices,

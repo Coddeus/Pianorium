@@ -1,5 +1,5 @@
-use crate::drawing::SPEED;
-use midly::{Smf, TrackEventKind::Midi, MidiMessage::{NoteOn, NoteOff}, num::{u7, u28}};
+use crate::drawing::{FRAMERATE, SPEED};
+use midly::{Smf, TrackEventKind::Midi, TrackEventKind::Meta, MidiMessage::{NoteOn, NoteOff}, num::{u7, u15, u24, u28}, MetaMessage::{Tempo, EndOfTrack}, Timing::{Metrical, Timecode}};
 
 const LAYOUT: [[f32 ; 2] ; 88] = [
     [-26./26., -25./26.],
@@ -104,11 +104,11 @@ const BLACK: [u8 ; 36] = [1, 4, 6, 9, 11, 13, 16, 18, 21, 23, 25, 28, 30, 33, 35
 #[derive(Debug, Clone)]
 struct Note {
     note: u8,       // A0 is 21 ; C8 is 108
-    start: u32,
-    end: u32,
+    start: f32,
+    end: f32,
 }
 
-pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>) {
+pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>, usize) { // Done Twice instead of just ….clone().iter_mut { +0.5 }
     let mut vertices: Vec<f32> = vec![];
     let mut indices: Vec<u32> = vec![];
 
@@ -116,71 +116,104 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>) {
     let mut blacknotes: Vec<Note> = vec![];
     let mut active_notes: Vec<Option<Note>> = vec![None; 128];
 
+    println!("Note that the given midi file should countain only one track");
     let midi_file = Smf::parse(include_bytes!("../test.mid")).unwrap();
 
-    for track in midi_file.tracks.iter() {
-        let mut current_time: u32 = 0;
-        for event in track.iter() {
-            current_time += <u28 as Into<u32>>::into(event.delta);
+    let mut spb: f32 = 0.5; // Seconds per tick
+    let mut spt: f32; // Seconds per beat
+    match midi_file.header.timing {
+        Metrical(m) => {
+            println!("PPQ initialized with Metrical data.");
+            let ppq: f32 = <u15 as Into<u16>>::into(m) as f32;
+            spt = spb / ppq;
 
-            if let Midi { channel: _, message } = event.kind {
-                match message {
-                    NoteOn { key, vel } => {
-                        if 20 < key && key < 109 {
-                            if vel > 0 {
-                                let note_obj = Note {
-                                    note: <u7 as Into<u8>>::into(key),
-                                    start: current_time,
-                                    end: 0,
-                                };
-                                active_notes[<u7 as Into<u8>>::into(key) as usize] = Some(note_obj);
-                            } else {
-                                if let Some(mut note_obj) = active_notes[<u7 as Into<u8>>::into(key) as usize].take() {
-                                    note_obj.end = current_time;
-                                    if BLACK.contains(&note_obj.note) {
-                                        blacknotes.push(note_obj);
-                                    } else {
-                                        notes.push(note_obj);
+        },
+        Timecode(fps, sfpf) => {
+            println!("Seconds per tick initialized with Timecode data.");
+            spt = 1./fps.as_f32()/sfpf as f32;
+        }
+    }
+    let mut eot: usize = 0;
+
+    for track in midi_file.tracks.iter() {
+        let mut current_time: f32 = 2.;
+        for event in track.iter() {
+            current_time += <u28 as Into<u32>>::into(event.delta) as f32 * spt;
+            match event.kind {
+
+                Midi { channel: _, message } => {
+                    match message {
+                        NoteOn { key, vel } => {
+                            if 20 < key && key < 109 {
+                                if vel > 0 {
+                                    let note_obj = Note {
+                                        note: <u7 as Into<u8>>::into(key),
+                                        start: current_time,
+                                        end: 0.,
+                                    };
+                                    active_notes[<u7 as Into<u8>>::into(key) as usize] = Some(note_obj);
+                                } else {
+                                    if let Some(mut note_obj) = active_notes[<u7 as Into<u8>>::into(key) as usize].take() {
+                                        note_obj.end = current_time;
+                                        if BLACK.contains(&note_obj.note) {
+                                            blacknotes.push(note_obj);
+                                        } else {
+                                            notes.push(note_obj);
+                                        }
+                                        active_notes[<u7 as Into<u8>>::into(key) as usize] = None;
                                     }
-                                    active_notes[<u7 as Into<u8>>::into(key) as usize] = None;
                                 }
                             }
-                        }
-                    }
-                    NoteOff { key, vel: _ } => {
-                        if let Some(mut note_obj) = active_notes[<u7 as Into<u8>>::into(key) as usize].take() {
-                            note_obj.end = current_time;
-                            if BLACK.contains(&note_obj.note) {
-                                blacknotes.push(note_obj);
-                            } else {
-                                notes.push(note_obj);
+                        },
+                        NoteOff { key, vel: _ } => {
+                            if let Some(mut note_obj) = active_notes[<u7 as Into<u8>>::into(key) as usize].take() {
+                                note_obj.end = current_time;
+                                if BLACK.contains(&note_obj.note) {
+                                    blacknotes.push(note_obj);
+                                } else {
+                                    notes.push(note_obj);
+                                }
+                                active_notes[<u7 as Into<u8>>::into(key) as usize] = None;
                             }
-                            active_notes[<u7 as Into<u8>>::into(key) as usize] = None;
-                        }
+                        },
+                        _ => {}
                     }
-                    _ => {}
-                }
+                },
+
+                Meta(message) => { // Add EOF auto-end
+                    match message {
+                        Tempo(t) => { // This event should only be present when header timing is "Metrical"
+                            let tempo: f32 = <u24 as Into<u32>>::into(t) as f32/1000000.;
+                            println!("{} {} {}", spt, spb, tempo);
+                            spt = spt/spb*tempo;
+                            spb = tempo;
+                        },
+                        EndOfTrack => {
+                            eot = ((current_time + 4.) * FRAMERATE) as usize;
+                        },
+                        _ => {}
+                    }
+                },
+
+                _ => {}
             }
         }
     }
 
     notes.extend(blacknotes);
 
-
-    let tempo: f32 = 20.;
-
     for (i, n) in notes.iter().enumerate() {
         let ver2: Vec<f32> = vec![
-             //               x                                     y                   color  
-             LAYOUT[n.note as usize-21][0],         (n.start as f32*SPEED/tempo),          1.0,
-             LAYOUT[n.note as usize-21][1],         (n.start as f32*SPEED/tempo),          1.0,
-             LAYOUT[n.note as usize-21][1],         (n.end as f32*SPEED/tempo),            1.0,
-             LAYOUT[n.note as usize-21][0],         (n.end as f32*SPEED/tempo),            1.0,
-             //               x                                     y                   color 
-             LAYOUT[n.note as usize-21][0]+0.004,   (n.start as f32*SPEED/tempo+0.004),    0.0,
-             LAYOUT[n.note as usize-21][1]-0.004,   (n.start as f32*SPEED/tempo+0.004),    0.0,
-             LAYOUT[n.note as usize-21][1]-0.004,   (n.end as f32*SPEED/tempo-0.004),      0.0,
-             LAYOUT[n.note as usize-21][0]+0.004,   (n.end as f32*SPEED/tempo-0.004),      0.0,
+             //               x                             y          color  
+             LAYOUT[n.note as usize-21][0],         (n.start),          1.,
+             LAYOUT[n.note as usize-21][1],         (n.start),          1.,
+             LAYOUT[n.note as usize-21][1],         (n.end),            1.,
+             LAYOUT[n.note as usize-21][0],         (n.end),            1.,
+             //               x                             y          color 
+             LAYOUT[n.note as usize-21][0]+0.004,   (n.start+0.004),    0.,
+             LAYOUT[n.note as usize-21][1]-0.004,   (n.start+0.004),    0.,
+             LAYOUT[n.note as usize-21][1]-0.004,   (n.end-0.004),      0.,
+             LAYOUT[n.note as usize-21][0]+0.004,   (n.end-0.004),      0.,
         ];
         vertices.extend(ver2);
         
@@ -203,6 +236,5 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>) {
             *y-=SPEED;
         }
     }
-
-    (vertices, indices)
+    (vertices, indices, eot)
 }

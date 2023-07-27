@@ -69,7 +69,7 @@ fn main() {
 
     let mut i = 0;
     let mut event_pump = sdl.event_pump().unwrap();
-    'main: while i < 10000 {
+    'main: loop {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
@@ -79,6 +79,7 @@ fn main() {
 
         
         ogl = handle1.join().unwrap();
+        if i > ogl.max_frame { break 'main; }                                   // Stop when it's finished playing
         unsafe { gl::Uniform1f(location_utime, ogl.frame as f32/60.); }
         ogl.draw();
         ogl.read();
