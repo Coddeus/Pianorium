@@ -1,6 +1,3 @@
-pub const FRAMERATE: f32 = 60.;
-pub const SPEED: f32 = 2./FRAMERATE;
-
 impl crate::OpenGLContext {
     pub fn draw(&mut self) {
         unsafe {
@@ -21,7 +18,7 @@ impl crate::OpenGLContext {
                 .skip(1)
                 .step_by(3) 
             {
-                *y-=SPEED;
+                *y-=self.speed;
             }
         }
     }

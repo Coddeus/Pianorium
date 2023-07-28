@@ -1,4 +1,4 @@
-use crate::drawing::{FRAMERATE, SPEED};
+use std::{io::Read, fs::File};
 use midly::{Smf, TrackEventKind::Midi, TrackEventKind::Meta, MidiMessage::{NoteOn, NoteOff}, num::{u7, u15, u24, u28}, MetaMessage::{Tempo, EndOfTrack}, Timing::{Metrical, Timecode}};
 
 const LAYOUT: [[f32 ; 2] ; 88] = [
@@ -108,7 +108,7 @@ struct Note {
     end: f32,
 }
 
-pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>, usize) { // Done Twice instead of just ….clone().iter_mut { +0.5 }
+pub fn midi_to_vertices(framerate: f32, midi_file: String) -> (Vec<f32>, Vec<u32>, usize) { // Done Twice instead of just ….clone().iter_mut { +0.5 }
     let mut vertices: Vec<f32> = vec![];
     let mut indices: Vec<u32> = vec![];
 
@@ -117,11 +117,15 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>, usize) { // Done T
     let mut active_notes: Vec<Option<Note>> = vec![None; 128];
 
     println!("Note that the given midi file should countain only one track");
-    let midi_file = Smf::parse(include_bytes!("../test.mid")).unwrap();
+    let mut file = File::open(midi_file).expect("\nMidi file could not be opened. \nCheck the file path, and retry");
+    let mut buf: Vec<u8> = vec![];
+    let numbytes: usize = file.read_to_end(&mut buf).expect("\nMidi file could not be read.");
+    println!("{} bytes were successfully read!", numbytes);
+    let midi_data = Smf::parse(&buf).unwrap();
 
     let mut spb: f32 = 0.5; // Seconds per tick
     let mut spt: f32; // Seconds per beat
-    match midi_file.header.timing {
+    match midi_data.header.timing {
         Metrical(m) => {
             println!("PPQ initialized with Metrical data.");
             let ppq: f32 = <u15 as Into<u16>>::into(m) as f32;
@@ -135,7 +139,7 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>, usize) { // Done T
     }
     let mut eot: usize = 0;
 
-    for track in midi_file.tracks.iter() {
+    for track in midi_data.tracks.iter() {
         let mut current_time: f32 = 2.;
         for event in track.iter() {
             current_time += <u28 as Into<u32>>::into(event.delta) as f32 * spt;
@@ -184,12 +188,11 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>, usize) { // Done T
                     match message {
                         Tempo(t) => { // This event should only be present when header timing is "Metrical"
                             let tempo: f32 = <u24 as Into<u32>>::into(t) as f32/1000000.;
-                            println!("{} {} {}", spt, spb, tempo);
                             spt = spt/spb*tempo;
                             spb = tempo;
                         },
                         EndOfTrack => {
-                            eot = ((current_time + 4.) * FRAMERATE) as usize;
+                            eot = ((current_time + 4.) * framerate) as usize;
                         },
                         _ => {}
                     }
@@ -227,14 +230,5 @@ pub fn midi_to_vertices(frame: usize) -> (Vec<f32>, Vec<u32>, usize) { // Done T
         indices.extend(ind2);
     }
 
-    if frame!=0 {
-        for y in vertices
-            .iter_mut()
-            .skip(1)
-            .step_by(3) 
-        {
-            *y-=SPEED;
-        }
-    }
     (vertices, indices, eot)
 }

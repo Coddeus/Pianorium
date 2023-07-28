@@ -6,6 +6,7 @@ use opengl::OpenGLContext;
 extern crate gl;
 extern crate sdl2;
 
+pub mod cli;
 pub mod drawing;
 pub mod ffmpeg;
 pub mod midi;
@@ -13,13 +14,23 @@ pub mod opengl;
 pub mod shaders;
                                                                 
 fn main() {
+    let mut args: Vec<String> = std::env::args().collect();
+    args.remove(0);
+    let params = cli::Parameters::build(&args).unwrap();
+    
+    let width: usize = params.width;
+    let height: usize = params.height;
+    let framerate: f32 = params.framerate;
+    let samples: u8 = params.samples;
+    let midi_file: String = params.midi_file;
+    println!("{:?}", std::env::current_dir().unwrap());
+    println!("{}", midi_file);
+    let output_file: String = params.output_file;
+    let clear_dir: bool = params.clear_dir;
+
+
     setup_fs();
     let mut index_file = File::create("index.txt").unwrap();
-
-    let width: usize = 1920/2;
-    let height: usize = 1080/2;
-    let samples: u8 = 0;
-    let clear_dir: bool = false;
 
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
@@ -62,8 +73,9 @@ fn main() {
         }
     }
     
-    let mut ogl: OpenGLContext = opengl::OpenGLContext::new(width, height, 0);
-    let mut ogl2: OpenGLContext = opengl::OpenGLContext::new(width, height, 1);
+    let mut ogl: OpenGLContext = opengl::OpenGLContext::new(width, height, framerate, midi_file);
+    let mut ogl2: OpenGLContext = ogl.clone();
+
     let mut handle1: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl});
     let mut handle2: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl2});
 
@@ -112,7 +124,7 @@ fn main() {
         i+=2;
     }
     
-    ffmpeg::concat_output(); // ≃1/4 of runtime
+    ffmpeg::concat_output(output_file); // ≃1/4 of runtime
     if clear_dir {teardown_fs();}
 }
     
