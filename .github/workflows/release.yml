@@ -13,6 +13,7 @@ jobs:
     name: Build and upload
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - build: linux
@@ -26,10 +27,6 @@ jobs:
           - build: windows-msvc
             os: windows-latest
             target: x86_64-pc-windows-msvc
-
-          - build: windows-gnu
-            os: windows-latest
-            target: x86_64-pc-windows-gnu
 
     runs-on: ${{ matrix.os }}
     steps:
