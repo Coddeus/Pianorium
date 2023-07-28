@@ -10,7 +10,7 @@ out VS_OUTPUT {
 
 void main()
 {
-    gl_Position = vec4(Position, 0.0, 1.0);
+    gl_Position = vec4(Position.x, Position.y, 0.0, 1.0); // Divide gl_Position.y to squeeze the render vertically
     OUT.Color = Color;
     OUT.Position = Position;
 }

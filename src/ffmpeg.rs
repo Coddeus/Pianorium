@@ -51,7 +51,7 @@ impl crate::OpenGLContext {
     }
 }
 
-pub fn concat_output() {
+pub fn concat_output(output: String) {
     println!("\nConcatenating into one video…\n");
 
     Command::new("ffmpeg")
@@ -65,7 +65,7 @@ pub fn concat_output() {
         .arg("-c")
         .arg("copy")
         .arg("-y")
-        .arg("output.mp4")
+        .arg(output.as_str())
         .output()
         .unwrap();
 
