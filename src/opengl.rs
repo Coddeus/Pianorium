@@ -3,14 +3,16 @@ extern crate sdl2;
 
 use crate::midi::midi_to_vertices;
 
-#[derive(Clone)]
 pub struct OpenGLContext {
     pub width: usize,
     pub height: usize,
     pub bytes: usize,
-    pub frame: usize,
-    pub max_frame: usize,
     pub data: Vec<u8>,
+
+    pub speed: f32,
+    pub framerate: f32,
+    pub max_frame: usize,
+    pub frame: usize,
 
     pub vertices: Vec<f32>,
     pub indices: Vec<u32>,
@@ -20,12 +22,67 @@ pub struct OpenGLContext {
     pub ibo: gl::types::GLuint,
 }
 
+impl Clone for OpenGLContext{
+    fn clone(&self) -> OpenGLContext{
+        let data = self.data.clone();
+        let mut vertices = self.vertices.clone();
+        let indices = self.indices.clone();
+
+        for y in vertices
+            .iter_mut()
+            .skip(1)
+            .step_by(3) 
+        {
+            *y-=self.speed;
+        }
+
+        OpenGLContext {
+            width: self.width,
+            height: self.height,
+            bytes: self.bytes,
+            data,
+
+            speed: self.speed,
+            framerate: self.framerate,
+            max_frame: self.max_frame,
+            frame: self.frame+1,
+
+            vertices,
+            indices,
+
+            vbo: self.vbo,
+            vao: self.vao,
+            ibo: self.ibo,
+        }
+            .setup_vbo()
+            .setup_vao()
+            .setup_context()
+            .setup_ibo()
+    }
+}
+
+impl Drop for OpenGLContext{
+    fn drop(&mut self) {
+        unsafe { 
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+            
+            gl::DeleteBuffers(1, &self.ibo);
+            gl::DeleteBuffers(1, &self.vbo);
+            gl::DeleteVertexArrays(1, &self.vao);
+        }
+    }
+}
+
 impl OpenGLContext {
-    pub fn new(width: usize, height: usize, frame: usize) -> Self {
+    pub fn new(width: usize, height: usize, framerate: f32, midi_file: String) -> Self {
         let bytes: usize = width*height*4;
         let data: Vec<u8> = vec![0 ; bytes];
 
-        let (vertices, indices, max_frame) = midi_to_vertices(frame);
+        let speed: f32 = 2./framerate;
+        let frame: usize = 0;
+        let (vertices, indices, max_frame) = midi_to_vertices(framerate, midi_file);
 
         let vbo: gl::types::GLuint = 0;
         let vao: gl::types::GLuint = 0;
@@ -35,9 +92,12 @@ impl OpenGLContext {
             width,
             height,
             bytes,
-            frame,
-            max_frame,
             data,
+
+            speed,
+            framerate,
+            max_frame,
+            frame,
 
             vertices,
             indices,
@@ -116,19 +176,5 @@ impl OpenGLContext {
             );
         }
         self
-    }
-}
-
-impl Drop for OpenGLContext{
-    fn drop(&mut self) {
-        unsafe { 
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-            
-            gl::DeleteBuffers(1, &self.ibo);
-            gl::DeleteBuffers(1, &self.vbo);
-            gl::DeleteVertexArrays(1, &self.vao);
-        }
     }
 }
