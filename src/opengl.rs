@@ -22,6 +22,12 @@ pub struct OpenGLContext {
     pub ibo: gl::types::GLuint,
 }
 
+impl std::fmt::Debug for OpenGLContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "ogl{}", self.frame)
+    }
+}
+
 impl Clone for OpenGLContext{
     fn clone(&self) -> OpenGLContext{
         let data = self.data.clone();
@@ -33,7 +39,7 @@ impl Clone for OpenGLContext{
             .skip(1)
             .step_by(3) 
         {
-            *y-=self.speed;
+            *y-=self.speed/6.;
         }
 
         OpenGLContext {
@@ -67,7 +73,7 @@ impl Drop for OpenGLContext{
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
-            
+
             gl::DeleteBuffers(1, &self.ibo);
             gl::DeleteBuffers(1, &self.vbo);
             gl::DeleteVertexArrays(1, &self.vao);
@@ -80,7 +86,7 @@ impl OpenGLContext {
         let bytes: usize = width*height*4;
         let data: Vec<u8> = vec![0 ; bytes];
 
-        let speed: f32 = 2./framerate;
+        let speed: f32 = 6./framerate;
         let frame: usize = 0;
         let (vertices, indices, max_frame) = midi_to_vertices(framerate, midi_file);
 

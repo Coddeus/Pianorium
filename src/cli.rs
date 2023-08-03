@@ -5,8 +5,8 @@
 pub struct Parameters {
     pub width: usize,
     pub height: usize,
-    pub framerate: f32,
     pub samples: u8,
+    pub framerate: f32,
     // Relative path from where the executable is called
     pub midi_file: String,
     // Relative path from where the executable is called
@@ -31,8 +31,8 @@ impl Parameters {
         Ok(Parameters {
             width,
             height,
-            framerate,
             samples,
+            framerate,
             midi_file,
             output_file,
             clear_dir,

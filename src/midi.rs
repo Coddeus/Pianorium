@@ -116,24 +116,21 @@ pub fn midi_to_vertices(framerate: f32, midi_file: String) -> (Vec<f32>, Vec<u32
     let mut blacknotes: Vec<Note> = vec![];
     let mut active_notes: Vec<Option<Note>> = vec![None; 128];
 
-    println!("Note that the given midi file should countain only one track");
     let mut file = File::open(midi_file).expect("\nMidi file could not be opened. \nCheck the file path, and retry");
     let mut buf: Vec<u8> = vec![];
     let numbytes: usize = file.read_to_end(&mut buf).expect("\nMidi file could not be read.");
-    println!("{} bytes were successfully read!", numbytes);
+    println!("{}-byte midi file successfully read!", numbytes);
     let midi_data = Smf::parse(&buf).unwrap();
 
     let mut spb: f32 = 0.5; // Seconds per tick
     let mut spt: f32; // Seconds per beat
     match midi_data.header.timing {
         Metrical(m) => {
-            println!("PPQ initialized with Metrical data.");
             let ppq: f32 = <u15 as Into<u16>>::into(m) as f32;
             spt = spb / ppq;
 
         },
         Timecode(fps, sfpf) => {
-            println!("Seconds per tick initialized with Timecode data.");
             spt = 1./fps.as_f32()/sfpf as f32;
         }
     }
@@ -184,14 +181,14 @@ pub fn midi_to_vertices(framerate: f32, midi_file: String) -> (Vec<f32>, Vec<u32
                     }
                 },
 
-                Meta(message) => { // Add EOF auto-end
+                Meta(message) => {
                     match message {
-                        Tempo(t) => { // This event should only be present when header timing is "Metrical"
+                        Tempo(t) => {   // This event should only be present when header timing is "Metrical"
                             let tempo: f32 = <u24 as Into<u32>>::into(t) as f32/1000000.;
                             spt = spt/spb*tempo;
                             spb = tempo;
                         },
-                        EndOfTrack => {
+                        EndOfTrack => {      // Know when the render finishes
                             eot = ((current_time + 4.) * framerate) as usize;
                         },
                         _ => {}

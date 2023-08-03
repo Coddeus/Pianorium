@@ -144,3 +144,16 @@ fn create_whitespace_cstring_with_len(len: usize) -> CString {
     buffer.extend([b' '].iter().cycle().take(len));
     unsafe { CString::from_vec_unchecked(buffer) }
 }
+    
+pub fn create_program() -> gl::types::GLuint {
+    let vert_shader =
+        Shader::from_vert_source(&CString::new(include_str!(".vert")).unwrap()).unwrap();
+
+    let frag_shader =
+        Shader::from_frag_source(&CString::new(include_str!(".frag")).unwrap()).unwrap();
+    
+    let shader_program = Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
+    shader_program.set_used();
+
+    shader_program.id()
+}
