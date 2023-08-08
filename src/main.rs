@@ -1,6 +1,5 @@
 extern crate gl;
 extern crate sdl2;
-extern crate num_cpus;
 
 pub mod cli;
 pub mod drawing;
@@ -26,10 +25,6 @@ fn main() {
     let midi_file: String = params.midi_file;
     let output_file: String = params.output_file;
     let clear_dir: bool = params.clear_dir;
-
-    let threads: usize = num_cpus::get_physical();
-    println!("You have {} CPU cores", threads);
-
 
     fs::setup();
     let mut index_file = File::create("index.txt").unwrap();
@@ -102,7 +97,7 @@ fn main() {
         
         ogl1 = handle1.join().unwrap();
         if i > ogl1.max_frame { break 'main; }                                   // Stop when it's finished playing
-        unsafe { gl::Uniform1f(location_utime, ogl1.frame as f32/60.); }
+        unsafe { gl::Uniform1f(location_utime, ogl1.frame as f32/framerate); }
         ogl1.draw();
         ogl1.read();
         window.gl_swap_window();
@@ -117,7 +112,7 @@ fn main() {
         });
         
         ogl2 = handle2.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl2.frame as f32/60.); }
+        unsafe { gl::Uniform1f(location_utime, ogl2.frame as f32/framerate); }
         ogl2.draw();
         ogl2.read();
         window.gl_swap_window();
@@ -132,7 +127,7 @@ fn main() {
         });
         
         ogl3 = handle3.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl3.frame as f32/60.); }
+        unsafe { gl::Uniform1f(location_utime, ogl3.frame as f32/framerate); }
         ogl3.draw();
         ogl3.read();
         window.gl_swap_window();
@@ -147,7 +142,7 @@ fn main() {
         });
         
         ogl4 = handle4.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl4.frame as f32/60.); }
+        unsafe { gl::Uniform1f(location_utime, ogl4.frame as f32/framerate); }
         ogl4.draw();
         ogl4.read();
         window.gl_swap_window();
@@ -162,7 +157,7 @@ fn main() {
         });
         
         ogl5 = handle5.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl5.frame as f32/60.); }
+        unsafe { gl::Uniform1f(location_utime, ogl5.frame as f32/framerate); }
         ogl5.draw();
         ogl5.read();
         window.gl_swap_window();
@@ -177,7 +172,7 @@ fn main() {
         });
         
         ogl6 = handle6.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl6.frame as f32/60.); }
+        unsafe { gl::Uniform1f(location_utime, ogl6.frame as f32/framerate); }
         ogl6.draw();
         ogl6.read();
         window.gl_swap_window();

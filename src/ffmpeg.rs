@@ -27,7 +27,7 @@ impl crate::OpenGLContext {
             .arg("-f")
             .arg("rawvideo")
             .arg("-r")
-            .arg("60")
+            .arg(self.framerate.to_string())
             .arg("-pix_fmt")
             .arg("bgra")
             .arg("-s")
