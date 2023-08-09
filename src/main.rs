@@ -1,22 +1,22 @@
 extern crate gl;
 extern crate sdl2;
 
-pub mod cli;
-pub mod drawing;
-pub mod ffmpeg;
 pub mod fs;
-pub mod midi;
 pub mod opengl;
-pub mod shaders;
+pub mod midi;
+pub mod render;
+pub mod ui;
 
+use crate::opengl::shaders::create_program;
+use crate::ui::cli::Parameters;
 use std::fs::File;
 use std::io::Write;
-use opengl::OpenGLContext;
+use opengl::context::OpenGLContext;
                                                        
 fn main() {
     let mut args: Vec<String> = std::env::args().collect();
     args.remove(0);
-    let params = cli::Parameters::build(&args).unwrap();
+    let params = Parameters::build(&args).unwrap();
     
     let width: usize = params.width;
     let height: usize = params.height;
@@ -51,7 +51,7 @@ fn main() {
     let _gl =
         gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
 
-    let shader: gl::types::GLuint = shaders::create_program();
+    let shader: gl::types::GLuint = create_program();
 
     let cname_utime: std::ffi::CString = std::ffi::CString::new("u_time").expect("CString::new failed");
     let location_utime: gl::types::GLint;
@@ -70,7 +70,7 @@ fn main() {
         }
     }
     
-    let mut ogl1: OpenGLContext = opengl::OpenGLContext::new(width, height, framerate, midi_file);
+    let mut ogl1: OpenGLContext = OpenGLContext::new(width, height, framerate, midi_file);
     let mut ogl2: OpenGLContext = ogl1.clone();
     let mut ogl3: OpenGLContext = ogl2.clone();
     let mut ogl4: OpenGLContext = ogl3.clone();
@@ -189,6 +189,6 @@ fn main() {
         i+=6;
     }
     
-    ffmpeg::concat_output(output_file); // ≃1/4 of runtime
+    render::concat_output(output_file); // ≃1/4 of runtime
     if clear_dir { fs::teardown(); }
 }
