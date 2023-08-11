@@ -13,6 +13,7 @@ pub struct OpenGLContext {
     pub framerate: f32,
     pub max_frame: usize,
     pub frame: usize,
+    pub cores: usize,
 
     pub vertices: Vec<f32>,
     pub indices: Vec<u32>,
@@ -39,7 +40,7 @@ impl Clone for OpenGLContext{
             .skip(1)
             .step_by(3) 
         {
-            *y-=self.speed/6.;
+            *y-=self.speed/self.cores as f32;
         }
 
         OpenGLContext {
@@ -52,6 +53,7 @@ impl Clone for OpenGLContext{
             framerate: self.framerate,
             max_frame: self.max_frame,
             frame: self.frame+1,
+            cores: self.cores,
 
             vertices,
             indices,
@@ -104,6 +106,7 @@ impl OpenGLContext {
             framerate,
             max_frame,
             frame,
+            cores,
 
             vertices,
             indices,

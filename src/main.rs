@@ -84,7 +84,7 @@ fn main() {
             gl::Enable(gl::MULTISAMPLE);
         }
     }
-    let midi2 = midi_file.clone();
+
     let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
     for _u in 1..cores {
         ogls.push(ogls[ogls.len()-1].clone());
@@ -109,12 +109,11 @@ fn main() {
             }
         }
 
-        for u in 0..cores {
+        for _u in 0..cores {
             let mut ogl = handles.remove(0).join().unwrap();
             if ogl.frame > ogl.max_frame { break 'main; }                                   // Stop when it's finished playing
-            unsafe { gl::Uniform1f(location_utime, ogl.frame as f32/framerate); }
+            unsafe { gl::Uniform1f(location_utime, ogl.frame as f32/framerate); }            
             ogl.draw();
-    
             ogl.read();
             window.gl_swap_window();
             let name: String = format!("temp/{:010}.mp4", ogl.frame);
