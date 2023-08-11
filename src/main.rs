@@ -1,6 +1,6 @@
 extern crate gl;
 extern crate sdl2;
-extern crate egui;
+// extern crate egui;
 extern crate num_cpus;
 
 pub mod fs;
@@ -13,7 +13,7 @@ use crate::opengl::shaders::create_program;
 use crate::ui::cli::Parameters;
 use std::fs::File;
 use std::io::Write;
-use std::time::Instant;
+// use std::time::Instant;
 use opengl::context::OpenGLContext;
                                                        
 fn main() {
@@ -44,7 +44,6 @@ fn main() {
         gl_attr.set_multisample_samples(samples);
     }
 
-    // TODO display window ? => if not: good perf [might choose to use only fbo => current state ; but tex not read]
     let window = video_subsystem
         .window("Pianorium", width as u32, height as u32)
         .opengl()
@@ -60,13 +59,11 @@ fn main() {
         .unwrap();
 
     let shader: gl::types::GLuint = create_program();
-    // Init egui stuff
-    let shader_ver = egui_sdl2_gl::ShaderVersion::Default;
-    // On linux use GLES SL 100+, like so:
-    // let shader_ver = ShaderVersion::Adaptive;
-    let (mut painter, mut egui_state) =
-        egui_sdl2_gl::with_sdl2(&window, shader_ver, egui_sdl2_gl::DpiScaling::Custom(2.0));
-    let mut egui_ctx = egui::CtxRef::default();
+    
+    // let shader_ver = egui_sdl2_gl::ShaderVersion::Default;
+    // let (mut painter, mut egui_state) =
+    //     egui_sdl2_gl::with_sdl2(&window, shader_ver, egui_sdl2_gl::DpiScaling::Custom(2.0));
+    // let mut egui_ctx = egui::CtxRef::default();
 
     let cname_utime: std::ffi::CString = std::ffi::CString::new("u_time").expect("CString::new failed");
     let location_utime: gl::types::GLint;
@@ -96,16 +93,14 @@ fn main() {
         handles.push(std::thread::spawn(move || {ogl}))
     }
 
-    let start_time = Instant::now();
-    let mut slider = 0.0;
-
-    let mut i: usize = 0;
+    // let start_time = Instant::now();
+    // let mut slider = 0.0;
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
-                _ => { egui_state.process_input(&window, event, &mut painter); }
+                _ => {  } // egui_state.process_input(&window, event, &mut painter);
             }
         }
 
