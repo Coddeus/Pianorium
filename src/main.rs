@@ -1,5 +1,7 @@
 extern crate gl;
 extern crate sdl2;
+extern crate egui;
+extern crate num_cpus;
 
 pub mod fs;
 pub mod opengl;
@@ -11,6 +13,7 @@ use crate::opengl::shaders::create_program;
 use crate::ui::cli::Parameters;
 use std::fs::File;
 use std::io::Write;
+use std::time::Instant;
 use opengl::context::OpenGLContext;
                                                        
 fn main() {
@@ -25,6 +28,7 @@ fn main() {
     let midi_file: String = params.midi_file;
     let output_file: String = params.output_file;
     let clear_dir: bool = params.clear_dir;
+    let cores: usize = num_cpus::get();
 
     fs::setup();
     let mut index_file = File::create("index.txt").unwrap();
@@ -48,10 +52,21 @@ fn main() {
         .unwrap();
 
     let _gl_context = window.gl_create_context().unwrap();
-    let _gl =
-        gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
+    let _gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
+
+    window
+        .subsystem()
+        .gl_set_swap_interval(sdl2::video::SwapInterval::VSync)
+        .unwrap();
 
     let shader: gl::types::GLuint = create_program();
+    // Init egui stuff
+    let shader_ver = egui_sdl2_gl::ShaderVersion::Default;
+    // On linux use GLES SL 100+, like so:
+    // let shader_ver = ShaderVersion::Adaptive;
+    let (mut painter, mut egui_state) =
+        egui_sdl2_gl::with_sdl2(&window, shader_ver, egui_sdl2_gl::DpiScaling::Custom(2.0));
+    let mut egui_ctx = egui::CtxRef::default();
 
     let cname_utime: std::ffi::CString = std::ffi::CString::new("u_time").expect("CString::new failed");
     let location_utime: gl::types::GLint;
@@ -69,20 +84,20 @@ fn main() {
             gl::Enable(gl::MULTISAMPLE);
         }
     }
-    
-    let mut ogl1: OpenGLContext = OpenGLContext::new(width, height, framerate, midi_file);
-    let mut ogl2: OpenGLContext = ogl1.clone();
-    let mut ogl3: OpenGLContext = ogl2.clone();
-    let mut ogl4: OpenGLContext = ogl3.clone();
-    let mut ogl5: OpenGLContext = ogl4.clone();
-    let mut ogl6: OpenGLContext = ogl5.clone();
+    let midi2 = midi_file.clone();
+    let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
+    for _u in 1..cores {
+        ogls.push(ogls[ogls.len()-1].clone());
+    }
 
-    let mut handle1: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl1});
-    let mut handle2: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl2});
-    let mut handle3: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl3});
-    let mut handle4: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl4});
-    let mut handle5: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl5});
-    let mut handle6: std::thread::JoinHandle<OpenGLContext> = std::thread::spawn(move || {ogl6});
+    let mut handles: Vec<std::thread::JoinHandle<OpenGLContext>> = vec![];
+    for _u in 0..cores {
+        let ogl = ogls.remove(0);
+        handles.push(std::thread::spawn(move || {ogl}))
+    }
+
+    let start_time = Instant::now();
+    let mut slider = 0.0;
 
     let mut i: usize = 0;
     let mut event_pump = sdl.event_pump().unwrap();
@@ -90,105 +105,45 @@ fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
-                _ => {}
+                _ => { egui_state.process_input(&window, event, &mut painter); }
             }
         }
 
-        
-        ogl1 = handle1.join().unwrap();
-        if i > ogl1.max_frame { break 'main; }                                   // Stop when it's finished playing
-        unsafe { gl::Uniform1f(location_utime, ogl1.frame as f32/framerate); }
-        ogl1.draw();
-        ogl1.read();
-        window.gl_swap_window();
-        let name: String = format!("temp/{:010}.mp4", ogl1.frame);
-        let filename: &str = name.as_str();
-        writeln!(index_file, "file {}", filename).unwrap();
-        println!("Frame {} generated!", i);
-        handle1 = std::thread::spawn(move ||{
-            ogl1.export();
-            ogl1.frame += 6;
-            ogl1
-        });
-        
-        ogl2 = handle2.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl2.frame as f32/framerate); }
-        ogl2.draw();
-        ogl2.read();
-        window.gl_swap_window();
-        let name: String = format!("temp/{:010}.mp4", ogl2.frame);
-        let filename: &str = name.as_str();
-        writeln!(index_file, "file {}", filename).unwrap();
-        println!("Frame {} generated!", i+1);
-        handle2 = std::thread::spawn(move ||{
-            ogl2.export();
-            ogl2.frame += 6;
-            ogl2
-        });
-        
-        ogl3 = handle3.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl3.frame as f32/framerate); }
-        ogl3.draw();
-        ogl3.read();
-        window.gl_swap_window();
-        let name: String = format!("temp/{:010}.mp4", ogl3.frame);
-        let filename: &str = name.as_str();
-        writeln!(index_file, "file {}", filename).unwrap();
-        println!("Frame {} generated!", i+2);
-        handle3 = std::thread::spawn(move ||{
-            ogl3.export();
-            ogl3.frame += 6;
-            ogl3
-        });
-        
-        ogl4 = handle4.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl4.frame as f32/framerate); }
-        ogl4.draw();
-        ogl4.read();
-        window.gl_swap_window();
-        let name: String = format!("temp/{:010}.mp4", ogl4.frame);
-        let filename: &str = name.as_str();
-        writeln!(index_file, "file {}", filename).unwrap();
-        println!("Frame {} generated!", i+3);
-        handle4 = std::thread::spawn(move ||{
-            ogl4.export();
-            ogl4.frame += 6;
-            ogl4
-        });
-        
-        ogl5 = handle5.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl5.frame as f32/framerate); }
-        ogl5.draw();
-        ogl5.read();
-        window.gl_swap_window();
-        let name: String = format!("temp/{:010}.mp4", ogl5.frame);
-        let filename: &str = name.as_str();
-        writeln!(index_file, "file {}", filename).unwrap();
-        println!("Frame {} generated!", i+4);
-        handle5 = std::thread::spawn(move ||{
-            ogl5.export();
-            ogl5.frame += 6;
-            ogl5
-        });
-        
-        ogl6 = handle6.join().unwrap();
-        unsafe { gl::Uniform1f(location_utime, ogl6.frame as f32/framerate); }
-        ogl6.draw();
-        ogl6.read();
-        window.gl_swap_window();
-        let name: String = format!("temp/{:010}.mp4", ogl6.frame);
-        let filename: &str = name.as_str();
-        writeln!(index_file, "file {}", filename).unwrap();
-        println!("Frame {} generated!", i+5);
-        handle6 = std::thread::spawn(move ||{
-            ogl6.export();
-            ogl6.frame += 6;
-            ogl6
-        });
-        
-        i+=6;
+        for u in 0..cores {
+            let mut ogl = handles.remove(0).join().unwrap();
+            if ogl.frame > ogl.max_frame { break 'main; }                                   // Stop when it's finished playing
+            unsafe { gl::Uniform1f(location_utime, ogl.frame as f32/framerate); }
+            ogl.draw();
+    
+            ogl.read();
+            window.gl_swap_window();
+            let name: String = format!("temp/{:010}.mp4", ogl.frame);
+            let filename: &str = name.as_str();
+            writeln!(index_file, "file {}", filename).unwrap();
+            println!("Frame {} generated!", ogl.frame);
+            handles.push(std::thread::spawn(move ||{
+                ogl.export();
+                ogl.frame += cores;
+                ogl
+            }))
+        }
     }
     
     render::concat_output(output_file); // ≃1/4 of runtime
     if clear_dir { fs::teardown(); }
 }
+
+// fn draw_gui() { // Struct with Impl
+// 
+//     egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
+//     egui_ctx.begin_frame(egui_state.input.take());
+//     egui::CentralPanel::default().show(&egui_ctx, |ui| {
+//         ui.label(" ");
+//         ui.add(egui::Slider::new(&mut slider, 0.0..=50.0).text("Slider"));
+//         ui.label(" ");
+//     });
+//     let (egui_output, paint_cmds) = egui_ctx.end_frame();
+//     egui_state.process_output(&window, &egui_output);
+//     let paint_jobs = egui_ctx.tessellate(paint_cmds);
+//     painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
+// }

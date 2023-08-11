@@ -82,11 +82,11 @@ impl Drop for OpenGLContext{
 }
 
 impl OpenGLContext {
-    pub fn new(width: usize, height: usize, framerate: f32, midi_file: String) -> Self {
+    pub fn new(width: usize, height: usize, framerate: f32, cores: usize, midi_file: String) -> Self {
         let bytes: usize = width*height*4;
         let data: Vec<u8> = vec![0 ; bytes];
 
-        let speed: f32 = 6./framerate;
+        let speed: f32 = cores as f32/framerate;
         let frame: usize = 0;
         let (vertices, indices, max_frame) = midi_to_vertices(framerate, midi_file);
 
