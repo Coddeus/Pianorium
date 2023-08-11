@@ -43,7 +43,10 @@ With:
 - 100% free, open-source, no-watermark, and forever!
 
 ## Credits
-If you use this software or find it cool, consider crediting to it 😊.  
+If you use this software (e.g. for videos), please consider crediting to it. For example:  
+Midi visualization software: Pianorium by Coddeus on GitHub
+
+This is not required but really appreciated ^^.
 
 ## Program License
 
