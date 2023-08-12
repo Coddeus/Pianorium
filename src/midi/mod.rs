@@ -108,7 +108,7 @@ struct Note {
     end: f32,
 }
 
-pub fn midi_to_vertices(framerate: f32, midi_file: String) -> (Vec<f32>, Vec<u32>, usize) { // Done Twice instead of just ….clone().iter_mut { +0.5 }
+pub fn midi_to_vertices(framerate: f32, midi_file: String) -> std::io::Result<(Vec<f32>, Vec<u32>, usize)> { // Done Twice instead of just ….clone().iter_mut { +0.5 }
     let mut vertices: Vec<f32> = vec![];
     let mut indices: Vec<u32> = vec![];
 
@@ -227,5 +227,5 @@ pub fn midi_to_vertices(framerate: f32, midi_file: String) -> (Vec<f32>, Vec<u32
         indices.extend(ind2);
     }
 
-    (vertices, indices, eot)
+    Ok((vertices, indices, eot))
 }

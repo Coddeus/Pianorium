@@ -7,6 +7,7 @@ pub struct Parameters {
     pub height: usize,
     pub samples: u8,
     pub framerate: f32,
+    pub cores: usize,
     // Relative path from where the executable is called
     pub midi_file: String,
     // Relative path from where the executable is called
@@ -19,20 +20,23 @@ impl Parameters {
         if args.len() != 7 {
             return Err("The number of arguments is incorrect");
         }
+        let mut args: std::slice::Iter<'_, String> = args.iter();
+        let width_str = args.next().expect("A parameter is empty"); let width = width_str.parse::<usize>().unwrap();
+        let height_str = args.next().expect("A parameter is empty"); let height = height_str.parse::<usize>().unwrap();
+        let framerate_str = args.next().expect("A parameter is empty"); let framerate = framerate_str.parse::<f32>().unwrap();
+        let samples_str = args.next().expect("A parameter is empty"); let samples = samples_str.parse::<u8>().unwrap();
+        let midi_file_str = args.next().expect("A parameter is empty"); let midi_file = midi_file_str.parse::<String>().unwrap();
+        let output_file_str = args.next().expect("A parameter is empty"); let output_file = output_file_str.parse::<String>().unwrap();
+        let clear_dir_str = args.next().expect("A parameter is empty"); let clear_dir = clear_dir_str.parse::<bool>().unwrap();
 
-        let width_str = args[0].clone(); let width = width_str.parse::<usize>().unwrap();
-        let height_str = args[1].clone(); let height = height_str.parse::<usize>().unwrap();
-        let framerate_str = args[2].clone(); let framerate = framerate_str.parse::<f32>().unwrap();
-        let samples_str = args[3].clone(); let samples = samples_str.parse::<u8>().unwrap();
-        let midi_file = args[4].clone();
-        let output_file = args[5].clone();
-        let clear_dir_str = args[6].clone(); let clear_dir = clear_dir_str.parse::<bool>().unwrap();
-
+        let cores: usize = num_cpus::get();
+        
         Ok(Parameters {
             width,
             height,
             samples,
             framerate,
+            cores,
             midi_file,
             output_file,
             clear_dir,

@@ -8,94 +8,52 @@ pub mod opengl;
 pub mod midi;
 pub mod render;
 pub mod ui;
+pub mod window;
 
-use crate::opengl::shaders::create_program;
-use crate::ui::cli::Parameters;
-use std::fs::File;
+use ui::cli::Parameters;
+use opengl::shaders::create_program;
+use opengl::context::{OpenGLContext, fill_handles};
+use opengl::uniforms::Uniform;
+
 use std::io::Write;
 // use std::time::Instant;
-use opengl::context::OpenGLContext;
-                                                       
+
 fn main() {
+    // INPUT ARGS
     let mut args: Vec<String> = std::env::args().collect();
     args.remove(0);
-    let params = Parameters::build(&args).unwrap();
-    
-    let width: usize = params.width;
-    let height: usize = params.height;
-    let framerate: f32 = params.framerate;
-    let samples: u8 = params.samples;
-    let midi_file: String = params.midi_file;
-    let output_file: String = params.output_file;
-    let clear_dir: bool = params.clear_dir;
-    let cores: usize = num_cpus::get();
+    let params: Parameters = Parameters::build(&args).unwrap();
 
-    fs::setup();
-    let mut index_file = File::create("index.txt").unwrap();
+    // FS
+    fs::setup().unwrap();
+    let mut index_file = std::fs::File::create("index.txt").unwrap();
 
-    let sdl = sdl2::init().unwrap();
-    let video_subsystem = sdl.video().unwrap();
+    // WINDOW
+    let winsdl: window::Winsdl = window::Winsdl::new(params.width, params.height, params.samples).unwrap();
 
-    let gl_attr = video_subsystem.gl_attr();
-    gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-    gl_attr.set_context_version(3, 3);
-    gl_attr.set_double_buffer(true);
-    if samples>1 {
-        gl_attr.set_multisample_samples(samples);
-    }
-
-    let window = video_subsystem
-        .window("Pianorium", width as u32, height as u32)
-        .opengl()
-        .build()
-        .unwrap();
-
-    let _gl_context = window.gl_create_context().unwrap();
-    let _gl = gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void);
-
-    window
-        .subsystem()
-        .gl_set_swap_interval(sdl2::video::SwapInterval::VSync)
-        .unwrap();
-
+    // SHADER
     let shader: gl::types::GLuint = create_program();
-    
+
+    // EGUI
     // let shader_ver = egui_sdl2_gl::ShaderVersion::Default;
     // let (mut painter, mut egui_state) =
     //     egui_sdl2_gl::with_sdl2(&window, shader_ver, egui_sdl2_gl::DpiScaling::Custom(2.0));
     // let mut egui_ctx = egui::CtxRef::default();
 
-    let cname_utime: std::ffi::CString = std::ffi::CString::new("u_time").expect("CString::new failed");
-    let location_utime: gl::types::GLint;
-    let cname_uresolution: std::ffi::CString = std::ffi::CString::new("u_resolution").expect("CString::new failed");
-    let location_uresolution: gl::types::GLint;
-    unsafe {
-        location_utime = gl::GetUniformLocation(shader, cname_utime.as_ptr());
-        gl::Uniform1f(location_utime, 0.0);
-        location_uresolution = gl::GetUniformLocation(shader, cname_uresolution.as_ptr());
-        gl::Uniform2f(location_uresolution, width as f32, height as f32);
-    }
+    // UNIFORMS
+    let u_time: Uniform = Uniform::new(shader, "u_time").unwrap();
+    unsafe { gl::Uniform1f(u_time.id, 0.0); }
 
-    if samples>1 {
-        unsafe {
-            gl::Enable(gl::MULTISAMPLE);
-        }
-    }
+    let u_resolution: Uniform = Uniform::new(shader, "u_resolution").unwrap();
+    unsafe { gl::Uniform2f(u_resolution.id, params.width as f32, params.height as f32); }
+    
+    let mut handles: Vec<std::thread::JoinHandle<OpenGLContext>> = fill_handles(params.width, params.height, params.framerate, params.cores, params.midi_file).unwrap();
 
-    let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
-    for _u in 1..cores {
-        ogls.push(ogls[ogls.len()-1].clone());
-    }
 
-    let mut handles: Vec<std::thread::JoinHandle<OpenGLContext>> = vec![];
-    for _u in 0..cores {
-        let ogl = ogls.remove(0);
-        handles.push(std::thread::spawn(move || {ogl}))
-    }
-
+    println!("{:?}", handles);
     // let start_time = Instant::now();
     // let mut slider = 0.0;
-    let mut event_pump = sdl.event_pump().unwrap();
+    let mut event_pump: sdl2::EventPump = winsdl.sdl.event_pump().unwrap();
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -104,27 +62,27 @@ fn main() {
             }
         }
 
-        for _u in 0..cores {
+        for _u in 0..params.cores {
             let mut ogl = handles.remove(0).join().unwrap();
             if ogl.frame > ogl.shared.max_frame { break 'main; }                                   // Stop when it's finished playing
-            unsafe { gl::Uniform1f(location_utime, ogl.frame as f32/framerate); }            
+            unsafe { gl::Uniform1f(u_time.id, ogl.frame as f32/params.framerate); }            
             ogl.draw();
             ogl.read();
-            window.gl_swap_window();
+            winsdl.window.gl_swap_window();
             let name: String = format!("temp/{:010}.mp4", ogl.frame);
             let filename: &str = name.as_str();
             writeln!(index_file, "file {}", filename).unwrap();
             println!("Frame {} generated!", ogl.frame);
             handles.push(std::thread::spawn(move ||{
                 ogl.export();
-                ogl.frame += cores;
+                ogl.frame += params.cores;
                 ogl
-            }))
+            }));
         }
     }
     
-    render::concat_output(output_file); // ≃1/4 of runtime
-    if clear_dir { fs::teardown(); }
+    render::concat_output(params.output_file); // ≃1/4 of runtime
+    if params.clear_dir { fs::teardown().unwrap(); }
 }
 
 // fn draw_gui() { // Struct with Impl

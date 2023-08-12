@@ -93,7 +93,7 @@ impl OpenGLContext {
 
         let speed: f32 = cores as f32/framerate;
         let frame: usize = 0;
-        let (vertices, indices, max_frame) = midi_to_vertices(framerate, midi_file);
+        let (vertices, indices, max_frame) = midi_to_vertices(framerate, midi_file).unwrap();
 
         let vbo: gl::types::GLuint = 0;
         let vao: gl::types::GLuint = 0;
@@ -192,4 +192,19 @@ impl OpenGLContext {
         }
         self
     }
+}
+
+pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: String) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
+
+    let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
+    for _u in 1..cores {
+        ogls.push(ogls[ogls.len()-1].clone());
+    }
+
+    let mut handles: Vec<std::thread::JoinHandle<OpenGLContext>> = vec![];
+    for _u in 0..cores {
+        let ogl = ogls.remove(0);
+        handles.push(std::thread::spawn(move || {ogl}));
+    }
+    Ok(handles)
 }
