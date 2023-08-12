@@ -4,16 +4,9 @@ extern crate sdl2;
 use crate::midi::midi_to_vertices;
 
 pub struct OpenGLContext {
-    pub width: usize,
-    pub height: usize,
-    pub bytes: usize,
-    pub data: Vec<u8>,
-
-    pub speed: f32,
-    pub framerate: f32,
-    pub max_frame: usize,
     pub frame: usize,
-    pub cores: usize,
+
+    pub data: Vec<u8>,
 
     pub vertices: Vec<f32>,
     pub indices: Vec<u32>,
@@ -21,6 +14,21 @@ pub struct OpenGLContext {
     pub vbo: gl::types::GLuint,
     pub vao: gl::types::GLuint,
     pub ibo: gl::types::GLuint,
+
+    pub shared: std::sync::Arc<Shared>,
+}
+
+pub struct Shared {
+    pub width: usize,
+    pub height: usize,
+
+    pub bytes: usize,
+    pub cores: usize,
+
+    pub speed: f32,
+    pub framerate: f32,
+
+    pub max_frame: usize,
 }
 
 impl std::fmt::Debug for OpenGLContext {
@@ -40,20 +48,13 @@ impl Clone for OpenGLContext{
             .skip(1)
             .step_by(3) 
         {
-            *y-=self.speed/self.cores as f32;
+            *y-=self.shared.speed/self.shared.cores as f32;
         }
 
         OpenGLContext {
-            width: self.width,
-            height: self.height,
-            bytes: self.bytes,
             data,
 
-            speed: self.speed,
-            framerate: self.framerate,
-            max_frame: self.max_frame,
             frame: self.frame+1,
-            cores: self.cores,
 
             vertices,
             indices,
@@ -61,6 +62,8 @@ impl Clone for OpenGLContext{
             vbo: self.vbo,
             vao: self.vao,
             ibo: self.ibo,
+
+            shared: self.shared.clone(),
         }
             .setup_vbo()
             .setup_vao()
@@ -97,16 +100,9 @@ impl OpenGLContext {
         let ibo: gl::types::GLuint = 0;
 
         OpenGLContext {
-            width,
-            height,
-            bytes,
             data,
 
-            speed,
-            framerate,
-            max_frame,
             frame,
-            cores,
 
             vertices,
             indices,
@@ -114,6 +110,16 @@ impl OpenGLContext {
             vbo,
             vao,
             ibo,
+
+            shared: std::sync::Arc::new(Shared {
+                width,
+                height,
+                bytes,
+                speed,
+                framerate,
+                max_frame,
+                cores,
+            }),
         }
             .setup_vbo()
             .setup_vao()
@@ -166,7 +172,7 @@ impl OpenGLContext {
     
     pub fn setup_context(self) -> Self {
         unsafe {
-            gl::Viewport(0, 0, self.width as i32, self.height as i32);
+            gl::Viewport(0, 0, self.shared.width as i32, self.shared.height as i32);
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }

@@ -18,7 +18,7 @@ impl crate::OpenGLContext {
                 .skip(1)
                 .step_by(3) 
             {
-                *y-=self.speed;
+                *y-=self.shared.speed;
             }
         }
     }

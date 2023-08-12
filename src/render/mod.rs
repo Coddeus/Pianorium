@@ -7,8 +7,8 @@ impl crate::OpenGLContext {
             gl::ReadPixels(
                 0,
                 0,
-                self.width as i32,
-                self.height as i32,
+                self.shared.width as i32,
+                self.shared.height as i32,
                 gl::BGRA,
                 gl::UNSIGNED_BYTE,
                 self.data.as_mut_ptr() as *mut gl::types::GLvoid,
@@ -27,11 +27,11 @@ impl crate::OpenGLContext {
             .arg("-f")
             .arg("rawvideo")
             .arg("-r")
-            .arg(self.framerate.to_string())
+            .arg(self.shared.framerate.to_string())
             .arg("-pix_fmt")
             .arg("bgra")
             .arg("-s")
-            .arg(format!("{}x{}", self.width, self.height))
+            .arg(format!("{}x{}", self.shared.width, self.shared.height))
             .arg("-i")
             .arg("-")
             .arg("-vcodec")
