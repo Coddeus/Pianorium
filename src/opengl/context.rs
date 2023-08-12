@@ -1,7 +1,7 @@
 extern crate gl;
 extern crate sdl2;
 
-use crate::midi::midi_to_vertices;
+use crate::{midi_to_vertices, Program, Uniform, create_program};
 
 pub struct OpenGLContext {
     pub frame: usize,
@@ -29,6 +29,10 @@ pub struct Shared {
     pub framerate: f32,
 
     pub max_frame: usize,
+
+    pub program: Program,
+    pub u_time: Uniform,
+    pub u_resolution: Uniform,
 }
 
 impl std::fmt::Debug for OpenGLContext {
@@ -87,7 +91,7 @@ impl Drop for OpenGLContext{
 }
 
 impl OpenGLContext {
-    pub fn new(width: usize, height: usize, framerate: f32, cores: usize, midi_file: String) -> Self {
+    pub fn new(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Self {
         let bytes: usize = width*height*4;
         let data: Vec<u8> = vec![0 ; bytes];
 
@@ -98,6 +102,14 @@ impl OpenGLContext {
         let vbo: gl::types::GLuint = 0;
         let vao: gl::types::GLuint = 0;
         let ibo: gl::types::GLuint = 0;
+        
+        let program: Program = create_program().unwrap();
+        
+        let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
+        let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
+        unsafe { gl::Uniform1f(u_time.id, 0.0); }
+        unsafe { gl::Uniform2f(u_resolution.id, width as f32, height as f32); }
+        
 
         OpenGLContext {
             data,
@@ -119,6 +131,10 @@ impl OpenGLContext {
                 framerate,
                 max_frame,
                 cores,
+
+                program,
+                u_time,
+                u_resolution,
             }),
         }
             .setup_vbo()
@@ -194,8 +210,7 @@ impl OpenGLContext {
     }
 }
 
-pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: String) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
-
+pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
     let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
     for _u in 1..cores {
         ogls.push(ogls[ogls.len()-1].clone());

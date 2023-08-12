@@ -1,7 +1,7 @@
 use std::process::{Command, Stdio};
 use std::io::Write;
 
-impl crate::OpenGLContext {
+impl crate::opengl::context::OpenGLContext {
     pub fn read(&mut self) {
         unsafe {
             gl::ReadPixels(
@@ -16,34 +16,46 @@ impl crate::OpenGLContext {
         }
     }
     
-    pub fn export(&self) {
+    pub fn export_mp4(&self) {
         let name = format!("temp/{:010}.mp4", self.frame);
         let filename = name.as_str();
 
         let mut ffmpeg = Command::new("ffmpeg")
-            .env("FFREPORT", "file=ffreport.log:level=56")
-            .arg("-loglevel")
-            .arg("0")
-            .arg("-f")
-            .arg("rawvideo")
-            .arg("-r")
-            .arg(self.shared.framerate.to_string())
-            .arg("-pix_fmt")
-            .arg("bgra")
-            .arg("-s")
-            .arg(format!("{}x{}", self.shared.width, self.shared.height))
-            .arg("-i")
-            .arg("-")
-            .arg("-vcodec")
-            .arg("libx264")
-            .arg("-crf")
-            .arg("23")
-            .arg("-vf")
-            .arg("vflip")
+            .env("FFREPORT", "file=ff_export_mp4.log:level=56")
+            .arg("-loglevel").arg("0")
+            .arg("-f").arg("rawvideo")
+            .arg("-r").arg(self.shared.framerate.to_string())
+            .arg("-pix_fmt").arg("bgra")
+            .arg("-s").arg(format!("{}x{}", self.shared.width, self.shared.height))
+            .arg("-i").arg("-")
+            .arg("-vcodec").arg("libx264")
+            .arg("-crf").arg("23")
+            .arg("-vf").arg("vflip")
             .arg(filename)
             .stdin(Stdio::piped())
             .spawn()
             .unwrap();
+        
+        if let Some(ref mut stdin) = ffmpeg.stdin {
+            stdin.write_all(&self.data).unwrap();
+        }
+    }
+    
+    pub fn export_png(&self, filename: &str) {
+        let mut ffmpeg = Command::new("ffmpeg")
+            .env("FFREPORT", "file=ff_export_png.log:level=56")
+            .arg("-loglevel").arg("0")
+            .arg("-f").arg("rawvideo")
+            .arg("-pix_fmt").arg("bgra")
+            .arg("-s").arg(format!("{}x{}", self.shared.width, self.shared.height))
+            .arg("-i").arg("-")
+            .arg("-frames:v").arg("1")
+            .arg("-vf").arg("vflip")
+            .arg("-y")
+            .arg(filename)
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("Failed to start ffmpeg process.");
 
         if let Some(ref mut stdin) = ffmpeg.stdin {
             stdin.write_all(&self.data).unwrap();
@@ -51,11 +63,11 @@ impl crate::OpenGLContext {
     }
 }
 
-pub fn concat_output(output: String) {
+pub fn concat_mp4(output: &str) {
     println!("\nConcatenating into one video…\n");
 
     Command::new("ffmpeg")
-        .env("FFREPORT", "file=ffconcat.log:level=56")
+        .env("FFREPORT", "file=ff_concat_mp4.log:level=56")
         .arg("-loglevel")
         .arg("0")
         .arg("-f")
@@ -65,7 +77,7 @@ pub fn concat_output(output: String) {
         .arg("-c")
         .arg("copy")
         .arg("-y")
-        .arg(output.as_str())
+        .arg(output)
         .output()
         .unwrap();
 

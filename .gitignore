@@ -13,10 +13,10 @@ Cargo.lock
 /images
 /temp
 *.mp4
+*.png
 *.webm
 index.txt
-ffreport.log
-ffconcat.log
+*.log
 
 # Flamegraphs
 *.svg

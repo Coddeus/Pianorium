@@ -1,4 +1,4 @@
-impl crate::OpenGLContext {
+impl super::context::OpenGLContext {
     pub fn draw(&mut self) {
         unsafe {
             gl::BindVertexArray(self.vao);

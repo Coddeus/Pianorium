@@ -3,7 +3,7 @@ use std;
 use std::ffi::{CStr, CString};
 
 pub struct Program {
-    id: gl::types::GLuint,
+    pub id: gl::types::GLuint,
 }
 
 impl Program {
@@ -52,10 +52,6 @@ impl Program {
         }
 
         Ok(Program { id: program_id })
-    }
-
-    pub fn id(&self) -> gl::types::GLuint {
-        self.id
     }
 
     pub fn set_used(&self) {
@@ -145,7 +141,7 @@ fn create_whitespace_cstring_with_len(len: usize) -> CString {
     unsafe { CString::from_vec_unchecked(buffer) }
 }
     
-pub fn create_program() -> gl::types::GLuint {
+pub fn create_program() -> Result<Program, &'static str> {
     let vert_shader =
         Shader::from_vert_source(&CString::new(include_str!(".vert")).unwrap()).unwrap();
 
@@ -155,5 +151,5 @@ pub fn create_program() -> gl::types::GLuint {
     let shader_program = Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
     shader_program.set_used();
 
-    shader_program.id()
+    Ok(Program { id: shader_program.id })
 }

@@ -8,8 +8,9 @@ pub fn setup() -> std::io::Result<()>{
 
 pub fn teardown() -> std::io::Result<()>{
     remove_dir_all("temp")?;
-    remove_file("index.txt")?;
-    remove_file("ffreport.log")?;
-    remove_file("ffconcat.log")?;
+    let _ = remove_file("index.txt");
+    let _ = remove_file("ff_concat_mp4.log");
+    let _ = remove_file("ff_export_mp4.log");
+    let _ = remove_file("ff_export_png.log");
     Ok(())
 }
