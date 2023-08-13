@@ -12,14 +12,16 @@ impl super::context::OpenGLContext {
 
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::DrawElements(gl::TRIANGLES, self.indices.len() as i32, gl::UNSIGNED_INT, 0 as *const _);
+        }
+    }
 
-            for y in self.vertices
-                .iter_mut()
-                .skip(1)
-                .step_by(3) 
-            {
-                *y-=self.shared.speed;
-            }
+    pub fn update(&mut self, diff: f32) {
+        for y in self.vertices
+            .iter_mut()
+            .skip(1)
+            .step_by(3) 
+        {
+            *y-=diff;
         }
     }
 }

@@ -1,9 +1,10 @@
 use gl;
+use gl::types::{GLuint, GLint};
 use std;
 use std::ffi::{CStr, CString};
 
 pub struct Program {
-    pub id: gl::types::GLuint,
+    pub id: GLuint,
 }
 
 impl Program {
@@ -20,13 +21,13 @@ impl Program {
             gl::LinkProgram(program_id);
         }
 
-        let mut success: gl::types::GLint = 1;
+        let mut success: GLint = 1;
         unsafe {
             gl::GetProgramiv(program_id, gl::LINK_STATUS, &mut success);
         }
 
         if success == 0 {
-            let mut len: gl::types::GLint = 0;
+            let mut len: GLint = 0;
             unsafe {
                 gl::GetProgramiv(program_id, gl::INFO_LOG_LENGTH, &mut len);
             }
@@ -107,13 +108,13 @@ fn shader_from_source(source: &CStr, kind: gl::types::GLenum) -> Result<gl::type
         gl::CompileShader(id);
     }
 
-    let mut success: gl::types::GLint = 1;
+    let mut success: GLint = 1;
     unsafe {
         gl::GetShaderiv(id, gl::COMPILE_STATUS, &mut success);
     }
 
     if success == 0 {
-        let mut len: gl::types::GLint = 0;
+        let mut len: GLint = 0;
         unsafe {
             gl::GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut len);
         }

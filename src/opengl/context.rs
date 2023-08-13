@@ -2,6 +2,7 @@ extern crate gl;
 extern crate sdl2;
 
 use crate::{midi_to_vertices, Program, Uniform, create_program};
+use gl::types::GLuint;
 
 pub struct OpenGLContext {
     pub frame: usize,
@@ -11,9 +12,9 @@ pub struct OpenGLContext {
     pub vertices: Vec<f32>,
     pub indices: Vec<u32>,
 
-    pub vbo: gl::types::GLuint,
-    pub vao: gl::types::GLuint,
-    pub ibo: gl::types::GLuint,
+    pub vbo: GLuint,
+    pub vao: GLuint,
+    pub ibo: GLuint,
 
     pub shared: std::sync::Arc<Shared>,
 }
@@ -99,9 +100,9 @@ impl OpenGLContext {
         let frame: usize = 0;
         let (vertices, indices, max_frame) = midi_to_vertices(framerate, midi_file).unwrap();
 
-        let vbo: gl::types::GLuint = 0;
-        let vao: gl::types::GLuint = 0;
-        let ibo: gl::types::GLuint = 0;
+        let vbo: GLuint = 0;
+        let vao: GLuint = 0;
+        let ibo: GLuint = 0;
         
         let program: Program = create_program().unwrap();
         
@@ -207,6 +208,12 @@ impl OpenGLContext {
             );
         }
         self
+    }
+
+    pub fn to_zero(&mut self) {
+        let units: f32 = self.shared.speed / self.shared.cores as f32 * self.frame as f32;
+        self.frame = 0;
+        self.update(-units);
     }
 }
 

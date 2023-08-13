@@ -18,13 +18,14 @@ pub use opengl::{context::*, drawing::*, shaders::*, uniforms::*};
 pub use midi::*;
 pub use pianorium::*;
 pub use render::*;
-pub use ui::cli::*;
+pub use ui::*;
 pub use window::*;
 
 fn main() {
     let mut p = pianorium::Pianorium::new().unwrap();
-    p.full_png();
-    p.full_mp4();
+    p.play().unwrap();
+    p.full_png().unwrap();
+    p.full_mp4().unwrap();
 }
 
 // fn draw_gui() { // Struct with Impl

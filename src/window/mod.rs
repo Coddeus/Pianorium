@@ -1,8 +1,11 @@
+use sdl2::{Sdl, EventPump, video::{Window, GLContext}};
+
 pub struct Winsdl {
-    pub sdl: sdl2::Sdl,
-    pub window: sdl2::video::Window,
-    pub gl_context: sdl2::video::GLContext,
+    pub sdl: Sdl,
+    pub window: Window,
+    pub gl_context: GLContext,
     pub gl: (),
+    pub event_pump: EventPump,
 }
 
 impl Winsdl {
@@ -38,11 +41,14 @@ impl Winsdl {
             }
         }
 
+        let event_pump: sdl2::EventPump = sdl.event_pump().unwrap();
+
         Ok(Winsdl{ 
-            sdl, 
-            window, 
+            sdl,
+            window,
             gl_context,
             gl,
+            event_pump,
         })
     }
 }

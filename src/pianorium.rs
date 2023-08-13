@@ -1,10 +1,12 @@
-use crate::{Winsdl, OpenGLContext, fill_handles, Parameters, fs};
+use crate::{Winsdl, OpenGLContext, fill_handles, Parameters, fs, Gui};
 use std::{thread::JoinHandle, env::args};
+
 
 pub struct Pianorium {
     pub params: Parameters,
     pub winsdl: Winsdl,
     pub handles: Vec<JoinHandle<OpenGLContext>>,
+    pub gui: Gui,
 }
 
 impl Drop for Pianorium {
@@ -29,18 +31,13 @@ impl Pianorium {
         // HANDLES FOR OPENGL
         let handles: Vec<JoinHandle<OpenGLContext>> = fill_handles(params.width, params.height, params.framerate, params.cores, &params.midi_file).unwrap();
 
-        // EGUI
-        // let shader_ver = egui_sdl2_gl::ShaderVersion::Default;
-        // let (mut painter, mut egui_state) =
-        //     egui_sdl2_gl::with_sdl2(&window, shader_ver, egui_sdl2_gl::DpiScaling::Custom(2.0));
-        // let mut egui_ctx = egui::CtxRef::default();
-
-        // UNIFORMS
+        let gui = Gui::new(&winsdl.window).unwrap();
 
         Ok(Pianorium {
             params,
             winsdl,
             handles,
+            gui,
         })
     }
 }
