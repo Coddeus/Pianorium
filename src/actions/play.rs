@@ -1,8 +1,9 @@
 use std::time::Instant;
 
-use sdl2::video::SwapInterval;
+use egui_sdl2_gl::{sdl2::{video::SwapInterval, event::Event}, gl};
 
 use crate::Pianorium;
+
 
 impl Pianorium {
     pub fn play(&mut self) -> Result<(), String> {
@@ -21,7 +22,7 @@ impl Pianorium {
         'play: loop {
             for event in self.winsdl.event_pump.poll_iter() {   // Note that dragging the window blocks the rendering on Windows
                 match event {
-                    sdl2::event::Event::Quit { .. } => break 'play,
+                    Event::Quit { .. } => break 'play,
                     _ => {  } // egui_state.process_input(&window, event, &mut painter);
                 }
             }

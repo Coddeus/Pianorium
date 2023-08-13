@@ -1,5 +1,6 @@
-use crate::{Winsdl, OpenGLContext, fill_handles, Parameters, fs, Gui};
 use std::{thread::JoinHandle, env::args};
+
+use crate::{Winsdl, OpenGLContext, fill_handles, Parameters, fs, Gui};
 
 
 pub struct Pianorium {

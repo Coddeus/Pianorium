@@ -1,5 +1,7 @@
 use std::{io::Read, fs::File};
+
 use midly::{Smf, TrackEventKind::Midi, TrackEventKind::Meta, MidiMessage::{NoteOn, NoteOff}, num::{u7, u15, u24, u28}, MetaMessage::{Tempo, EndOfTrack}, Timing::{Metrical, Timecode}};
+
 
 const LAYOUT: [[f32 ; 2] ; 88] = [
     [-26./26., -25./26.],

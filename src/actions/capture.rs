@@ -1,8 +1,9 @@
 use std::{fs::File, io::Write, thread::spawn};
 
-use sdl2::video::SwapInterval;
+use egui_sdl2_gl::{sdl2::{video::SwapInterval, event::Event}, gl};
 
 use crate::{concat_mp4, Pianorium};
+
 
 impl Pianorium {
     pub fn full_mp4(&mut self) -> Result<(), String> {
@@ -16,7 +17,7 @@ impl Pianorium {
         'record: loop {
             for event in self.winsdl.event_pump.poll_iter() {
                 match event {
-                    sdl2::event::Event::Quit { .. } => break 'record,
+                    Event::Quit { .. } => break 'record,
                     _ => {  } // egui_state.process_input(&window, event, &mut painter);
                 }
             }

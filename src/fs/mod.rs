@@ -1,5 +1,6 @@
 use std::fs::{create_dir, remove_dir_all, remove_file};
 
+
 pub fn setup() -> std::io::Result<()>{
     let _ = remove_dir_all("temp");
     create_dir("temp")?;

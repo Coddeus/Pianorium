@@ -1,3 +1,6 @@
+use egui_sdl2_gl::gl;
+
+
 impl super::context::OpenGLContext {
     pub fn draw(&mut self) {
         unsafe {

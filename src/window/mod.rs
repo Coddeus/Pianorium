@@ -1,4 +1,5 @@
-use sdl2::{Sdl, EventPump, video::{Window, GLContext}};
+use egui_sdl2_gl::{sdl2::{self, Sdl, EventPump, video::{Window, GLContext}}, gl};
+
 
 pub struct Winsdl {
     pub sdl: Sdl,

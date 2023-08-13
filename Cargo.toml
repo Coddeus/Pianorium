@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-egui = "*"
-sdl2 = { version = "*", features = ["bundled", "static-link"] }
-gl = "*"
-egui_sdl2_gl = "*"
+egui_sdl2_gl = { version = "*", features = ["sdl2_bundled"] }
 midly = "*"
 num_cpus = "*"

@@ -1,5 +1,7 @@
-use std::process::{Command, Stdio};
-use std::io::Write;
+use std::{process::{Command, Stdio}, io::Write};
+
+use egui_sdl2_gl::gl;
+
 
 impl crate::opengl::context::OpenGLContext {
     pub fn read(&mut self) {

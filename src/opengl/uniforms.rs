@@ -1,4 +1,7 @@
-use gl::types::GLint;
+use std::ffi::CString;
+
+use egui_sdl2_gl::gl::{self, types::GLint};
+
 
 pub struct Uniform {
     pub id: GLint,
@@ -6,8 +9,8 @@ pub struct Uniform {
 
 impl Uniform {
     pub fn new(shader: u32, name: &str) -> Result<Self, &'static str> {
-        let cname: std::ffi::CString = std::ffi::CString::new(name).expect("CString::new failed");
-        let location: gl::types::GLint;
+        let cname: CString = CString::new(name).expect("CString::new failed");
+        let location: GLint;
         unsafe {
             location = gl::GetUniformLocation(shader, cname.as_ptr());
         }

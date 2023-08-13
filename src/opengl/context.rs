@@ -1,8 +1,9 @@
-extern crate gl;
-extern crate sdl2;
+use std::sync::Arc;
+
+use egui_sdl2_gl::gl::{self,types::GLuint};
 
 use crate::{midi_to_vertices, Program, Uniform, create_program};
-use gl::types::GLuint;
+
 
 pub struct OpenGLContext {
     pub frame: usize,
@@ -16,7 +17,7 @@ pub struct OpenGLContext {
     pub vao: GLuint,
     pub ibo: GLuint,
 
-    pub shared: std::sync::Arc<Shared>,
+    pub shared: Arc<Shared>,
 }
 
 pub struct Shared {

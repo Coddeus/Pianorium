@@ -1,6 +1,4 @@
-extern crate gl;
-extern crate sdl2;
-// extern crate egui;
+extern crate egui_sdl2_gl;
 extern crate num_cpus;
 
 pub mod actions;

@@ -1,7 +1,7 @@
-use gl;
-use gl::types::{GLuint, GLint};
-use std;
-use std::ffi::{CStr, CString};
+use std::{ptr::null, ffi::{CStr, CString}};
+
+use egui_sdl2_gl::gl::{self, types::*};
+
 
 pub struct Program {
     pub id: GLuint,
@@ -39,7 +39,7 @@ impl Program {
                     program_id,
                     len,
                     std::ptr::null_mut(),
-                    error.as_ptr() as *mut gl::types::GLchar,
+                    error.as_ptr() as *mut GLchar,
                 );
             }
 
@@ -71,11 +71,11 @@ impl Drop for Program {
 }
 
 pub struct Shader {
-    id: gl::types::GLuint,
+    id: GLuint,
 }
 
 impl Shader {
-    pub fn from_source(source: &CStr, kind: gl::types::GLenum) -> Result<Shader, String> {
+    pub fn from_source(source: &CStr, kind: GLenum) -> Result<Shader, String> {
         let id = shader_from_source(source, kind)?;
         Ok(Shader { id })
     }
@@ -88,7 +88,7 @@ impl Shader {
         Shader::from_source(source, gl::FRAGMENT_SHADER)
     }
 
-    pub fn id(&self) -> gl::types::GLuint {
+    pub fn id(&self) -> GLuint {
         self.id
     }
 }
@@ -101,10 +101,10 @@ impl Drop for Shader {
     }
 }
 
-fn shader_from_source(source: &CStr, kind: gl::types::GLenum) -> Result<gl::types::GLuint, String> {
+fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint, String> {
     let id = unsafe { gl::CreateShader(kind) };
     unsafe {
-        gl::ShaderSource(id, 1, &source.as_ptr(), std::ptr::null());
+        gl::ShaderSource(id, 1, &source.as_ptr(), null());
         gl::CompileShader(id);
     }
 
@@ -126,7 +126,7 @@ fn shader_from_source(source: &CStr, kind: gl::types::GLenum) -> Result<gl::type
                 id,
                 len,
                 std::ptr::null_mut(),
-                error.as_ptr() as *mut gl::types::GLchar,
+                error.as_ptr() as *mut GLchar,
             );
         }
 
