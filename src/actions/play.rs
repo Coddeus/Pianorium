@@ -7,16 +7,16 @@ use crate::Pianorium;
 
 impl Pianorium {
     pub fn play(&mut self) -> Result<(), String> {
-        println!("Playing the visualization…");
         self.ogl.to_zero();
         self.winsdl.window
             .subsystem()
             .gl_set_swap_interval(SwapInterval::VSync)
             .unwrap();
-
+        
         // let ogl = self.handles.remove(0).join().unwrap();
         // self.ogl.to_zero();
         
+        println!("✨ Playing the visualization ✨");
         let start_time = Instant::now();
         let mut since_last: f32;
         let mut since_start: f32 = 0.0;

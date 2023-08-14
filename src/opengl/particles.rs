@@ -1,3 +1,8 @@
+use std::f32::consts::PI;
+
+use rand::{thread_rng, Rng};
+
+
 #[derive(Clone, Debug)]
 pub struct Particle { 
     pub position: (f32, f32),
@@ -6,11 +11,13 @@ pub struct Particle {
 }
 
 impl Particle {
-    fn new(x: f32) -> Self{
+    fn new(x: f32, seed: f32) -> Self {
+        let mut rng = thread_rng();
+        let r = rng.gen_range(-1.0..1.0);
         Particle { 
             position: (x, -1.),
-            direction: (0.5, 0.5),
-            lifetime: 1.,
+            direction: (seed/20.+r/20., rng.gen_range(0.3..(0.7-0.2*r.abs()))),
+            lifetime: 1.5-(r*PI/2.).sin().abs()/2.,
         }
     }
     
@@ -45,8 +52,10 @@ impl Particles {
 
         let mut i: usize = 0;
         while i < note_vert.len() {
-            if note_vert[1]<(-1.) && note_vert[7]>(-1.) {
-                self.particles.push(Particle::new((note_vert[0]+note_vert[6])/2.));
+            if note_vert[i+1]<(-1.) && note_vert[i+7]>(-1.) {
+                for _ in 0..(elapsed*3000.) as usize {
+                    self.particles.push(Particle::new((note_vert[i]+note_vert[i+6])/2., (1000.*note_vert[i]).sin()));
+                }
             }
             i+=24;
         }
@@ -60,10 +69,10 @@ impl Particles {
         for (i, p) in self.particles.iter().enumerate() {
             let ver2: Vec<f32> = vec![
                  //      x                 y        color  
-                 p.position.0-0.01, p.position.1-0.01, 0.8,
-                 p.position.0+0.01, p.position.1-0.01, 0.8,
-                 p.position.0+0.01, p.position.1+0.01, 0.8,
-                 p.position.0-0.01, p.position.1+0.01, 0.8,
+                 p.position.0-0.001, p.position.1-0.001, 0.8,
+                 p.position.0+0.001, p.position.1-0.001, 0.8,
+                 p.position.0+0.001, p.position.1+0.001, 0.8,
+                 p.position.0-0.001, p.position.1+0.001, 0.8,
             ];
             self.particle_vert.extend(ver2);
 

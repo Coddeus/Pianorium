@@ -231,7 +231,9 @@ impl OpenGLContext {
     pub fn to_zero(&mut self) {
         let units: f32 = self.speed / self.cores as f32 * self.frame as f32;
         self.frame = 0;
+        self.particles = Particles::new();
         self.update(-units);
+
     }
 }
 

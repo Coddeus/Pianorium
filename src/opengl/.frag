@@ -55,6 +55,6 @@ void main()
         */
     }
     else if (IN.Color == 0.8) {
-        Color = vec4(1.0, 1.0, 0.0, 0.5);
+        Color = vec4(0.75+(IN.Position.x+1.0)/8.0, 0.5+(cos(u_time)+1.0)/20.0+IN.Position.y/20.0, 0.5+(cos(u_time*3.0)+1.0)/20.0, 1.0);
     }
 }

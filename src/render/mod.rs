@@ -68,7 +68,7 @@ impl OpenGLContext {
 }
 
 pub fn concat_mp4(output: &str) {
-    println!("\nConcatenating into one video…\n");
+    println!("Concatenating into one video…");
 
     Command::new("ffmpeg")
         .env("FFREPORT", "file=ff_concat_mp4.log:level=56")
@@ -85,5 +85,5 @@ pub fn concat_mp4(output: &str) {
         .output()
         .unwrap();
 
-    println!("\n✨ Fresh video generated! ✨\n");
+    println!("✨ Fresh video generated! ✨");
 }
