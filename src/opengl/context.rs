@@ -1,82 +1,99 @@
-use std::sync::Arc;
+// use std::sync::{Arc, Mutex};
 
 use egui_sdl2_gl::gl::{self,types::GLuint};
 
-use crate::{midi_to_vertices, Program, Uniform, create_program};
+use crate::{Notes, Program, Uniform, create_program, Particles};
 
 
 pub struct OpenGLContext {
+    pub width: usize,
+    pub height: usize,
+    pub bytes: usize,
+    pub cores: usize,
+
     pub frame: usize,
+    pub framerate: f32,
+    pub speed: f32,
+    pub max_frame: usize,
 
     pub data: Vec<u8>,
 
-    pub vertices: Vec<f32>,
-    pub indices: Vec<u32>,
+    pub notes: Notes,
+    pub particles: Particles,
 
     pub vbo: GLuint,
     pub vao: GLuint,
     pub ibo: GLuint,
-
-    pub shared: Arc<Shared>,
-}
-
-pub struct Shared {
-    pub width: usize,
-    pub height: usize,
-
-    pub bytes: usize,
-    pub cores: usize,
-
-    pub speed: f32,
-    pub framerate: f32,
-
-    pub max_frame: usize,
 
     pub program: Program,
     pub u_time: Uniform,
     pub u_resolution: Uniform,
 }
 
-impl std::fmt::Debug for OpenGLContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "ogl{}", self.frame)
-    }
-}
+// pub struct Shared { // Read-only
+// 
+// }
+// 
+// impl std::fmt::Debug for OpenGLContext {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+//         write!(f, "ogl{}", self.shared.frame)
+//     }
+// }
+// 
+// impl Clone for OpenGLContext{
+//     fn clone(&self) -> OpenGLContext {
+// 
+//         OpenGLContext {
+//             width: self.width,
+//             height: self.height,
+//             bytes: self.bytes,
+//             cores: self.cores,
+//             framerate: self.framerate,
+//             speed: self.speed,
+//             max_frame: self.max_frame,
+//         
+//             data: self.data.clone(),
+// 
+//             shared: self.shared.clone(),
+//         }
+//             .setup_vbo()
+//             .setup_vao()
+//             .setup_context()
+//             .setup_ibo()
+//     
 
-impl Clone for OpenGLContext{
-    fn clone(&self) -> OpenGLContext{
-        let data = self.data.clone();
-        let mut vertices = self.vertices.clone();
-        let indices = self.indices.clone();
-
-        for y in vertices
-            .iter_mut()
-            .skip(1)
-            .step_by(3) 
-        {
-            *y-=self.shared.speed/self.shared.cores as f32;
-        }
-
-        OpenGLContext {
-            data,
-
-            frame: self.frame+1,
-
-            vertices,
-            indices,
-
-            vbo: self.vbo,
-            vao: self.vao,
-            ibo: self.ibo,
-
-            shared: self.shared.clone(),
-        }
-            .setup_vbo()
-            .setup_vao()
-            .setup_context()
-            .setup_ibo()
-    }
-}
+// impl Clone for OpenGLContext{
+//     fn clone(&self) -> OpenGLContext {
+//         OpenGLContext {
+//             width: self.width,
+//             height: self.height,
+//             bytes: self.bytes,
+//             cores: self.cores,
+//             
+//             frame: self.frame,
+//             framerate: self.framerate,
+//             speed: self.speed,
+//             max_frame: self.max_frame,
+//             
+//             data: self.data.clone(),
+//             
+//             notes: self.notes.clone(),
+//             particles: self.particles.clone(),
+//             
+//             vbo: self.vbo,
+//             vao: self.vao,
+//             ibo: self.ibo,
+//             
+//             program: self.program.clone(),
+//             u_time: self.u_time.clone(),
+//             u_resolution: self.u_resolution.clone(),
+//         }
+//             .setup_vbo()
+//             .setup_vao()
+//             .setup_context()
+//             .setup_ibo()
+//     }
+// }
 
 impl Drop for OpenGLContext{
     fn drop(&mut self) {
@@ -99,7 +116,9 @@ impl OpenGLContext {
 
         let speed: f32 = cores as f32/framerate;
         let frame: usize = 0;
-        let (vertices, indices, max_frame) = midi_to_vertices(framerate, midi_file).unwrap();
+        let (notes, max_frame) = Notes::from_midi(framerate, midi_file).unwrap();
+
+        let particles: Particles = Particles::new();
 
         let vbo: GLuint = 0;
         let vao: GLuint = 0;
@@ -114,30 +133,28 @@ impl OpenGLContext {
         
 
         OpenGLContext {
-            data,
-
+            width,
+            height,
+            bytes,
+            cores,
+            
             frame,
-
-            vertices,
-            indices,
-
+            framerate,
+            speed,
+            max_frame,
+            
+            data,
+            
+            notes,
+            particles,
+            
             vbo,
             vao,
             ibo,
-
-            shared: std::sync::Arc::new(Shared {
-                width,
-                height,
-                bytes,
-                speed,
-                framerate,
-                max_frame,
-                cores,
-
-                program,
-                u_time,
-                u_resolution,
-            }),
+            
+            program,
+            u_time,
+            u_resolution,
         }
             .setup_vbo()
             .setup_vao()
@@ -151,8 +168,8 @@ impl OpenGLContext {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (self.vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                self.vertices.as_ptr() as *const gl::types::GLvoid,
+                (self.notes.vert.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+                self.notes.vert.as_ptr() as *const gl::types::GLvoid,
                 gl::DYNAMIC_DRAW,
             );
         }
@@ -190,7 +207,7 @@ impl OpenGLContext {
     
     pub fn setup_context(self) -> Self {
         unsafe {
-            gl::Viewport(0, 0, self.shared.width as i32, self.shared.height as i32);
+            gl::Viewport(0, 0, self.width as i32, self.height as i32);
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }
@@ -203,8 +220,8 @@ impl OpenGLContext {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
             gl::BufferData(
                 gl::ELEMENT_ARRAY_BUFFER,
-                (self.indices.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
-                self.indices.as_ptr() as *const gl::types::GLvoid,
+                (self.notes.ind.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
+                self.notes.ind.as_ptr() as *const gl::types::GLvoid,
                 gl::DYNAMIC_DRAW,
             );
         }
@@ -212,22 +229,22 @@ impl OpenGLContext {
     }
 
     pub fn to_zero(&mut self) {
-        let units: f32 = self.shared.speed / self.shared.cores as f32 * self.frame as f32;
+        let units: f32 = self.speed / self.cores as f32 * self.frame as f32;
         self.frame = 0;
         self.update(-units);
     }
 }
 
-pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
-    let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
-    for _u in 1..cores {
-        ogls.push(ogls[ogls.len()-1].clone());
-    }
-
-    let mut handles: Vec<std::thread::JoinHandle<OpenGLContext>> = vec![];
-    for _u in 0..cores {
-        let ogl = ogls.remove(0);
-        handles.push(std::thread::spawn(move || {ogl}));
-    }
-    Ok(handles)
-}
+// pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
+//     let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
+//     for _u in 1..cores {
+//         ogls.push(ogls[ogls.len()-1].clone());
+//     }
+// 
+//     let mut handles: Vec<std::thread::JoinHandle<OpenGLContext>> = vec![];
+//     for _u in 0..cores {
+//         let ogl = ogls.remove(0);
+//         handles.push(std::thread::spawn(move || {ogl}));
+//     }
+//     Ok(handles)
+// }

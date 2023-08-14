@@ -19,10 +19,10 @@ mat2 rotate(float angle)
 
 void main()
 {
-    if (IN.Color>0.5) {
+    if (IN.Color == 1.0) {
         Color = vec4((IN.Position.x+1.0)/4.0, 0.1098+(cos(u_time)+1.0)/20.0+IN.Position.y/20.0, 0.1098+(cos(u_time*2.0)+1.0)/20.0, 1.0);
     } 
-    else {  
+    else if (IN.Color == 0.9) {  
         Color = vec4(0.5+(IN.Position.x+1.0)/4.0, 0.1098+(cos(u_time)+1.0)/20.0+IN.Position.y/20.0, 0.1098+(cos(u_time*2.0)+1.0)/20.0, 1.0);
 
         /* // Shader Art by lukasxl on ShaderToy
@@ -53,5 +53,8 @@ void main()
 
         Color = result * d;
         */
+    }
+    else if (IN.Color == 0.8) {
+        Color = vec4(1.0, 1.0, 0.0, 0.5);
     }
 }

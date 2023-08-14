@@ -1,12 +1,12 @@
-use std::{thread::JoinHandle, env::args};
+use std::{/*thread::JoinHandle,*/ env::args};
 
-use crate::{Winsdl, OpenGLContext, fill_handles, Parameters, fs, Gui};
+use crate::{Winsdl, OpenGLContext, /*fill_handles, */Parameters, fs, Gui};
 
 
-pub struct Pianorium {
+pub struct Pianorium { // Options for everything & mode chosen
     pub params: Parameters,
     pub winsdl: Winsdl,
-    pub handles: Vec<JoinHandle<OpenGLContext>>,
+    pub ogl: OpenGLContext,
     pub gui: Gui,
 }
 
@@ -30,14 +30,15 @@ impl Pianorium {
         let winsdl: Winsdl = Winsdl::new(params.width, params.height, params.samples).unwrap();
         
         // HANDLES FOR OPENGL
-        let handles: Vec<JoinHandle<OpenGLContext>> = fill_handles(params.width, params.height, params.framerate, params.cores, &params.midi_file).unwrap();
+        // let handles: Vec<JoinHandle<OpenGLContext>> = fill_handles(params.width, params.height, params.framerate, params.cores, &params.midi_file).unwrap();
+        let ogl = OpenGLContext::new(params.width, params.height, params.framerate, params.cores, &params.midi_file);
 
         let gui = Gui::new(&winsdl.window).unwrap();
 
         Ok(Pianorium {
             params,
             winsdl,
-            handles,
+            ogl,
             gui,
         })
     }
