@@ -4,12 +4,15 @@ use crate::OpenGLContext;
 
 
 impl OpenGLContext {
-    pub fn draw(&mut self) {
+    pub fn draw(&mut self, rgb: [f32 ; 3], since_start: f32) {
         unsafe {
             gl::BindVertexArray(self.vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+            gl::UseProgram(self.program.id);
+            gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
+            gl::Uniform1f(self.u_time.id, since_start as f32);
             gl::Clear(gl::COLOR_BUFFER_BIT);
-
+            
             self.draw_notes();
             self.draw_particles();
         }

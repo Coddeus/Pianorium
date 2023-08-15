@@ -229,6 +229,8 @@ impl OpenGLContext {
     }
 
     pub fn to_zero(&mut self) {
+        
+        unsafe { gl::UseProgram(self.program.id); }
         let units: f32 = self.speed / self.cores as f32 * self.frame as f32;
         self.frame = 0;
         self.particles = Particles::new();

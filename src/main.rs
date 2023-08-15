@@ -1,5 +1,7 @@
 extern crate egui_sdl2_gl;
 extern crate num_cpus;
+extern crate rand;
+extern crate midly;
 
 pub mod actions;
 pub mod fs;
@@ -14,7 +16,7 @@ pub use fs::*;
 pub use opengl::{context::*, drawing::*, layout::*, notes::*, particles::*, shaders::*, uniforms::*};
 pub use pianorium::*;
 pub use render::*;
-pub use ui::*;
+pub use ui::{cli::*, gui::*, theme::*};
 pub use window::*;
 
 fn main() {

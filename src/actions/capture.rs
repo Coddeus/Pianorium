@@ -30,7 +30,7 @@ impl Pianorium {
                 unsafe { gl::Uniform1f(self.ogl.u_time.id, self.ogl.frame as f32/self.params.framerate); }  
 
                 self.ogl.update(1.0/self.ogl.framerate );
-                self.ogl.draw();
+                // self.ogl.draw();
                 self.winsdl.window.gl_swap_window();
                 self.ogl.read();
                 self.ogl.export_mp4();
@@ -64,7 +64,7 @@ impl Pianorium {
         }
         
         unsafe { gl::Uniform1f(self.ogl.u_time.id, 0.0); }  
-        self.ogl.draw();
+        self.ogl.draw([0.1, 0.1, 0.1], 0.0);
         self.ogl.read();
         let png_file = self.params.png_file.clone();
         // spawn(move ||{

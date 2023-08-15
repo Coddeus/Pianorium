@@ -41,6 +41,9 @@ impl Winsdl {
                 gl::Enable(gl::MULTISAMPLE);
             }
         }
+        unsafe {
+            gl::Enable(gl::BLEND);
+        }
 
         let event_pump: sdl2::EventPump = sdl.event_pump().unwrap();
 

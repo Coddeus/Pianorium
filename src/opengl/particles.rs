@@ -16,8 +16,8 @@ impl Particle {
         let r = rng.gen_range(-1.0..1.0);
         Particle { 
             position: (x, -1.),
-            direction: (seed/20.+r/20., rng.gen_range(0.3..(0.7-0.2*r.abs()))),
-            lifetime: 1.5-(r*PI/2.).sin().abs()/2.,
+            direction: (seed/20.+r/20., rng.gen_range(0.3+0.15*r.abs()..(0.7-0.2*r.abs()))),
+            lifetime: 1.5-(r*PI/2.).sin().abs()/3.,
         }
     }
     
@@ -54,7 +54,7 @@ impl Particles {
         while i < note_vert.len() {
             if note_vert[i+1]<(-1.) && note_vert[i+7]>(-1.) {
                 for _ in 0..(elapsed*3000.) as usize {
-                    self.particles.push(Particle::new((note_vert[i]+note_vert[i+6])/2., (1000.*note_vert[i]).sin()));
+                    self.particles.push(Particle::new((note_vert[i]+note_vert[i+6])/2., (1000.*note_vert[i]).sin())); // (self.particles.len() as f32).sin()
                 }
             }
             i+=24;
