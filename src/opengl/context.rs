@@ -1,8 +1,8 @@
 // use std::sync::{Arc, Mutex};
 
-use egui_sdl2_gl::gl::{self,types::GLuint};
+use egui_sdl2_gl::gl;
 
-use crate::{Notes, Program, Uniform, create_program, Particles};
+use crate::{Notes, Program, Uniform, create_program, Particles, Vao, Vbo, Ibo};
 
 
 pub struct OpenGLContext {
@@ -21,9 +21,9 @@ pub struct OpenGLContext {
     pub notes: Notes,
     pub particles: Particles,
 
-    pub vbo: GLuint,
-    pub vao: GLuint,
-    pub ibo: GLuint,
+    pub vbo: Vbo,
+    pub vao: Vao,
+    pub ibo: Ibo,
 
     pub program: Program,
     pub u_time: Uniform,
@@ -95,20 +95,6 @@ pub struct OpenGLContext {
 //     }
 // }
 
-impl Drop for OpenGLContext{
-    fn drop(&mut self) {
-        unsafe { 
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-
-            gl::DeleteBuffers(1, &self.ibo);
-            gl::DeleteBuffers(1, &self.vbo);
-            gl::DeleteVertexArrays(1, &self.vao);
-        }
-    }
-}
-
 impl OpenGLContext {
     pub fn new(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Self {
         let bytes: usize = width*height*4;
@@ -120,17 +106,27 @@ impl OpenGLContext {
 
         let particles: Particles = Particles::new();
 
-        let vbo: GLuint = 0;
-        let vao: GLuint = 0;
-        let ibo: GLuint = 0;
-        
         let program: Program = create_program().unwrap();
-        
         let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
         let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
-        unsafe { gl::Uniform1f(u_time.id, 0.0); }
-        unsafe { gl::Uniform2f(u_resolution.id, width as f32, height as f32); }
+
+        unsafe { 
+            gl::Uniform1f(u_time.id, 0.0);
+            gl::Uniform2f(u_resolution.id, width as f32, height as f32);
+        }
         
+        let vbo: Vbo = Vbo::gen();
+        let vao: Vao = Vao::gen();
+        
+        unsafe {
+            gl::Viewport(0, 0, width as i32, height as i32);
+            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        }
+        let ibo: Ibo = Ibo::gen();
+        vbo.set(&notes.vert);
+        vao.set();
+        ibo.set(&notes.ind);
 
         OpenGLContext {
             width,
@@ -156,81 +152,9 @@ impl OpenGLContext {
             u_time,
             u_resolution,
         }
-            .setup_vbo()
-            .setup_vao()
-            .setup_context()
-            .setup_ibo()
-    }
-
-    pub fn setup_vbo(mut self) -> Self {
-        unsafe {
-            gl::GenBuffers(1, &mut self.vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (self.notes.vert.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                self.notes.vert.as_ptr() as *const gl::types::GLvoid,
-                gl::DYNAMIC_DRAW,
-            );
-        }
-        self
-    }
-    
-    pub fn setup_vao(mut self) -> Self {
-        unsafe {
-            gl::GenVertexArrays(1, &mut self.vao);
-
-            gl::BindVertexArray(self.vao);
-
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(
-                0,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                (3 * std::mem::size_of::<f32>()) as gl::types::GLint,
-                std::ptr::null(),
-            );
-
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribPointer(
-                1,
-                1,
-                gl::FLOAT,
-                gl::FALSE,
-                (3 * std::mem::size_of::<f32>()) as gl::types::GLint,
-                (2 * std::mem::size_of::<f32>()) as *const gl::types::GLvoid,
-            );
-        }
-        self
-    }
-    
-    pub fn setup_context(self) -> Self {
-        unsafe {
-            gl::Viewport(0, 0, self.width as i32, self.height as i32);
-            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-        }
-        self
-    }
-
-    pub fn setup_ibo(mut self) -> Self {
-        unsafe {
-            gl::GenBuffers(1, &mut self.ibo);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ibo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (self.notes.ind.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
-                self.notes.ind.as_ptr() as *const gl::types::GLvoid,
-                gl::DYNAMIC_DRAW,
-            );
-        }
-        self
     }
 
     pub fn to_zero(&mut self) {
-        
-        unsafe { gl::UseProgram(self.program.id); }
         let units: f32 = self.speed / self.cores as f32 * self.frame as f32;
         self.frame = 0;
         self.particles = Particles::new();

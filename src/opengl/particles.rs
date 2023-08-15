@@ -31,16 +31,16 @@ impl Particle {
 #[derive(Clone, Debug)]
 pub struct Particles {
     pub particles: Vec<Particle>,
-    pub particle_vert: Vec<f32>,
-    pub particle_ind: Vec<u32>,
+    pub vert: Vec<f32>,
+    pub ind: Vec<u32>,
 }
 
 impl Particles {
     pub fn new() -> Self {
         Particles {
             particles: vec![],
-            particle_vert: vec![],
-            particle_ind: vec![],
+            vert: vec![],
+            ind: vec![],
         }
     }
 
@@ -64,8 +64,8 @@ impl Particles {
     }
 
     pub fn particles_to_vertices(&mut self) -> std::io::Result<()>{
-        self.particle_vert = vec![];
-        self.particle_ind = vec![];
+        self.vert = vec![];
+        self.ind = vec![];
         for (i, p) in self.particles.iter().enumerate() {
             let ver2: Vec<f32> = vec![
                  //      x                 y        color  
@@ -74,14 +74,14 @@ impl Particles {
                  p.position.0+0.001, p.position.1+0.001, 0.8,
                  p.position.0-0.001, p.position.1+0.001, 0.8,
             ];
-            self.particle_vert.extend(ver2);
+            self.vert.extend(ver2);
 
             let i2: u32 = i as u32;
             let ind2: Vec<u32> = vec![
                 0+4*i2, 2+4*i2, 1+4*i2,
                 0+4*i2, 2+4*i2, 3+4*i2,
             ];
-            self.particle_ind.extend(ind2);
+            self.ind.extend(ind2);
         }
         Ok(())
     }

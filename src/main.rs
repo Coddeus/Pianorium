@@ -13,7 +13,7 @@ pub mod window;
 
 pub use actions::capture::*;
 pub use fs::*;
-pub use opengl::{context::*, drawing::*, layout::*, notes::*, particles::*, shaders::*, uniforms::*};
+pub use opengl::{context::*, drawing::*, layout::*, notes::*, objects::*, particles::*, shaders::*, uniforms::*};
 pub use pianorium::*;
 pub use render::*;
 pub use ui::{cli::*, gui::*, theme::*};

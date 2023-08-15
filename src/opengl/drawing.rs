@@ -6,9 +6,10 @@ use crate::OpenGLContext;
 impl OpenGLContext {
     pub fn draw(&mut self, rgb: [f32 ; 3], since_start: f32) {
         unsafe {
-            gl::BindVertexArray(self.vao);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
-            gl::UseProgram(self.program.id);
+            self.vbo.set(&self.notes.vert);
+            self.vao.set();
+            self.ibo.set(&self.notes.ind);
+            self.program.set_used();
             gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
             gl::Uniform1f(self.u_time.id, since_start as f32);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -20,37 +21,17 @@ impl OpenGLContext {
 
     pub fn draw_notes(&mut self) {
         unsafe {
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (self.notes.vert.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                self.notes.vert.as_ptr() as *const gl::types::GLvoid,
-                gl::DYNAMIC_DRAW,
-            );
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (self.notes.ind.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
-                self.notes.ind.as_ptr() as *const gl::types::GLvoid,
-                gl::DYNAMIC_DRAW,
-            );
+            self.vbo.set(&self.notes.vert);
+            self.ibo.set(&self.notes.ind);
             gl::DrawElements(gl::TRIANGLES, self.notes.ind.len() as i32, gl::UNSIGNED_INT, 0 as *const _);
         }
     }
     
     pub fn draw_particles(&mut self) {
         unsafe {
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (self.particles.particle_vert.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
-                self.particles.particle_vert.as_ptr() as *const gl::types::GLvoid,
-                gl::DYNAMIC_DRAW,
-            );
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (self.particles.particle_ind.len() * std::mem::size_of::<u32>()) as gl::types::GLsizeiptr,
-                self.particles.particle_ind.as_ptr() as *const gl::types::GLvoid,
-                gl::DYNAMIC_DRAW,
-            );
-            gl::DrawElements(gl::TRIANGLES, self.particles.particle_ind.len() as i32, gl::UNSIGNED_INT, 0 as *const _);
+            self.vbo.set(&self.particles.vert);
+            self.ibo.set(&self.particles.ind);
+            gl::DrawElements(gl::TRIANGLES, self.particles.ind.len() as i32, gl::UNSIGNED_INT, 0 as *const _);
         }
     }
 
