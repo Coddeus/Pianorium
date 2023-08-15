@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/pianorium.exe",
+            "args": [
+                "1200",
+                "900",
+                "60.0",
+                "11",
+                "test.mid",
+                "output.mp4",
+                "output.png",
+                "false",
+            ],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "cargo build"
+        },
+        {
+            "name": "Release",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/release/pianorium.exe",
+            "args": [
+                "1200",
+                "900",
+                "60.0",
+                "11",
+                "test.mid",
+                "output.mp4",
+                "output.png",
+                "false",
+            ],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "cargo build release"
+        }
+    ]
+}

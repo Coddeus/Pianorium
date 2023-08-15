@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cargo build",
+            "type": "cargo",
+            "command": "build",
+            "args": [
+            ],
+        },
+        {
+            "label": "cargo build release",
+            "command": "build",
+            "args": [
+                "--release",
+                "--",
+                "1200",
+                "900",
+                "60.0",
+                "11",
+                "test.mid",
+                "output.mp4",
+                "output.png",
+                "false",
+            ],
+        },
+    ]
+}
