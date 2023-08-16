@@ -1,4 +1,4 @@
-use std::{process::{Command, Stdio}, io::Write};
+use std::{process::{Command, Stdio}, io::Write, ptr::null};
 
 use egui_sdl2_gl::gl;
 
@@ -15,12 +15,12 @@ impl OpenGLContext {
                 self.height as i32,
                 gl::BGRA,
                 gl::UNSIGNED_BYTE,
-                self.data.as_mut_ptr() as *mut gl::types::GLvoid,
+                null::<u8>() as *mut gl::types::GLvoid,
             );
         }
     }
     
-    pub fn export_mp4(&self) {
+    pub fn export_mp4(&self, ptr: &[u8]) {
         let name = format!("temp/{:010}.mp4", self.frame);
         let filename = name.as_str();
 
@@ -41,7 +41,7 @@ impl OpenGLContext {
             .unwrap();
         
         if let Some(ref mut stdin) = ffmpeg.stdin {
-            stdin.write_all(&self.data).unwrap();
+            stdin.write_all(ptr).unwrap();
         }
     }
     

@@ -130,7 +130,7 @@ impl Pbo {
         unsafe {
             gl::BufferData(
                 gl::PIXEL_PACK_BUFFER,
-                (bytes * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr,
+                bytes as gl::types::GLsizeiptr,
                 null() as *const gl::types::GLvoid,
                 gl::STREAM_READ,
             );
@@ -181,7 +181,7 @@ impl Texture {
         unsafe { 
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGBA as i32, width, height, 0, gl::RGBA, gl::UNSIGNED_BYTE, null());
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::BGRA as i32, width, height, 0, gl::BGRA, gl::UNSIGNED_BYTE, null());
         }
     }
 

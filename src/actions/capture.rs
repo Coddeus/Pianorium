@@ -1,8 +1,8 @@
-use std::{fs::File, io::Write, time::Instant};
+use std::{fs::File, io::Write, time::Instant, ffi::c_void, slice::from_raw_parts};
 
 use egui_sdl2_gl::{sdl2::{video::SwapInterval, event::Event}, gl};
 
-use crate::{concat_mp4, Pianorium, Fbo, Texture};
+use crate::{concat_mp4, Pianorium, Fbo, Texture, Pbo};
 
 
 impl Pianorium {
@@ -25,6 +25,11 @@ impl Pianorium {
         tex.set(self.ogl.width as i32, self.ogl.height as i32);
         let fbo = Fbo::gen();
         fbo.set(tex.id);
+
+        let pbo = Pbo::gen();
+        pbo.set(self.ogl.bytes);
+
+       unsafe { gl::ReadBuffer(gl::COLOR_ATTACHMENT0); } 
         
         unsafe {
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
@@ -44,16 +49,21 @@ impl Pianorium {
                 unsafe { gl::Uniform1f(self.ogl.u_time.id, self.ogl.frame as f32/self.params.framerate); }
                 
                 self.ogl.update(1.0/self.ogl.framerate );                
-                self.ogl.draw();                
-                self.winsdl.window.gl_swap_window();
+                self.ogl.draw();
 
                 let time = Instant::now();
                 self.ogl.read();
                 println!("Read: {:?}", time.elapsed());
 
                 let time = Instant::now();
-                self.ogl.export_mp4();
+                let ptr: *mut c_void = pbo.map();
+                println!("Map: {:?}", time.elapsed());
+                
+                let time = Instant::now();
+                self.ogl.export_mp4(unsafe { from_raw_parts(ptr as *const u8, self.ogl.bytes) });
                 println!("Export: {:?}", time.elapsed());
+                
+                pbo.unmap();
                 
                 self.ogl.frame += 1;
                 let name: String = format!("temp/{:010}.mp4", self.ogl.frame);
