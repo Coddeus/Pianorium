@@ -4,14 +4,8 @@ use crate::OpenGLContext;
 
 
 impl OpenGLContext {
-    pub fn draw(&mut self, rgb: [f32 ; 3], since_start: f32) {
+    pub fn draw(&mut self) {
         unsafe {
-            self.vbo.set(&self.notes.vert);
-            self.vao.set();
-            self.ibo.set(&self.notes.ind);
-            self.program.set_used();
-            gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
-            gl::Uniform1f(self.u_time.id, since_start as f32);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             
             self.draw_notes();

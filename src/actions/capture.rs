@@ -1,8 +1,8 @@
-use std::{fs::File, io::Write};
+use std::{fs::File, io::Write, time::Instant};
 
 use egui_sdl2_gl::{sdl2::{video::SwapInterval, event::Event}, gl};
 
-use crate::{concat_mp4, Pianorium};
+use crate::{concat_mp4, Pianorium, Fbo, Texture};
 
 
 impl Pianorium {
@@ -15,6 +15,20 @@ impl Pianorium {
 
         let mut index = File::create(self.params.index_file.clone()).unwrap();
         println!("Rendering frames…");
+
+        self.ogl.vbo.set(&self.ogl.notes.vert);
+        self.ogl.vao.set();
+        self.ogl.ibo.set(&self.ogl.notes.ind);
+        self.ogl.program.set_used();
+
+        let tex = Texture::gen();
+        tex.set(self.ogl.width as i32, self.ogl.height as i32);
+        let fbo = Fbo::gen();
+        fbo.set(tex.id);
+        
+        unsafe {
+            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+        }
     
         'record: loop {
             for event in self.winsdl.event_pump.poll_iter() {
@@ -26,25 +40,32 @@ impl Pianorium {
     
             // for _u in 0..self.params.cores {
                 // let mut ogl = self.handles.remove(0).join().unwrap();
-                if self.ogl.frame > self.ogl.max_frame { break 'record; }                                                                    // Stop when it's finished playing
-                unsafe { gl::Uniform1f(self.ogl.u_time.id, self.ogl.frame as f32/self.params.framerate); }  
-
-                self.ogl.update(1.0/self.ogl.framerate );
-                // self.ogl.draw();
+                if self.ogl.frame > self.ogl.max_frame { break 'record; }             // Stop when it's finished playing
+                unsafe { gl::Uniform1f(self.ogl.u_time.id, self.ogl.frame as f32/self.params.framerate); }
+                
+                self.ogl.update(1.0/self.ogl.framerate );                
+                self.ogl.draw();                
                 self.winsdl.window.gl_swap_window();
+
+                let time = Instant::now();
                 self.ogl.read();
+                println!("Read: {:?}", time.elapsed());
+
+                let time = Instant::now();
                 self.ogl.export_mp4();
+                println!("Export: {:?}", time.elapsed());
+                
                 self.ogl.frame += 1;
                 let name: String = format!("temp/{:010}.mp4", self.ogl.frame);
                 let filename: &str = name.as_str();
                 writeln!(index, "file {}", filename).unwrap();
-
+                
                 // self.handles.push(spawn(move ||{
                 //     ogl.export_mp4();
                 //     ogl
                 // }));
-
-            // }
+                
+                // }
         }
         concat_mp4(&self.params.mp4_file.clone()); // ≃1/4 of runtime
         
@@ -63,8 +84,9 @@ impl Pianorium {
             *y=(*y/(self.ogl.max_frame as f32/self.ogl.framerate)-0.5)*2.;
         }
         
-        unsafe { gl::Uniform1f(self.ogl.u_time.id, 0.0); }  
-        self.ogl.draw([0.1, 0.1, 0.1], 0.0);
+        unsafe { gl::Uniform1f(self.ogl.u_time.id, 0.0); }
+        // unsafe { gl::Viewport(0, 0, (self.ogl.width/4) as i32, (self.ogl.height*3) as i32); } // with framebuffer change as well
+        self.ogl.draw();
         self.ogl.read();
         let png_file = self.params.png_file.clone();
         // spawn(move ||{

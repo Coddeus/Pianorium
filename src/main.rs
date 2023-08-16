@@ -23,7 +23,7 @@ fn main() {
     let mut p = pianorium::Pianorium::new().unwrap();
     p.play().unwrap();
     p.full_mp4().unwrap();
-    p.full_png().unwrap();
+    // p.full_png().unwrap();
 }
 
 // fn draw_gui() { // Struct with Impl

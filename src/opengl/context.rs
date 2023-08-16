@@ -114,19 +114,16 @@ impl OpenGLContext {
             gl::Uniform1f(u_time.id, 0.0);
             gl::Uniform2f(u_resolution.id, width as f32, height as f32);
         }
-        
-        let vbo: Vbo = Vbo::gen();
-        let vao: Vao = Vao::gen();
+
+        let vbo: Vbo = Vbo::gen(); vbo.set(&notes.vert);
+        let vao: Vao = Vao::gen(); vao.set();
+        let ibo: Ibo = Ibo::gen(); ibo.set(&notes.ind);
         
         unsafe {
             gl::Viewport(0, 0, width as i32, height as i32);
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }
-        let ibo: Ibo = Ibo::gen();
-        vbo.set(&notes.vert);
-        vao.set();
-        ibo.set(&notes.ind);
 
         OpenGLContext {
             width,

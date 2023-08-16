@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use egui_sdl2_gl::{egui, sdl2::{video::SwapInterval, event::Event}};
+use egui_sdl2_gl::{egui, sdl2::{video::SwapInterval, event::Event}, gl};
 
 use crate::Pianorium;
 
@@ -30,10 +30,17 @@ impl Pianorium {
             self.gui.egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
             self.gui.egui_ctx.begin_frame(self.gui.egui_state.input.take());
             
+            self.ogl.vbo.set(&self.ogl.notes.vert);
+            self.ogl.vao.set();
+            self.ogl.ibo.set(&self.ogl.notes.ind);
+            self.ogl.program.set_used();
+            unsafe {
+                gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
+                gl::Uniform1f(self.ogl.u_time.id, since_start as f32);
+            }
             self.ogl.update(since_last);
-            self.ogl.draw(rgb, since_start);
+            self.ogl.draw();
             self.ogl.frame += 1;
-            println!("Drew frame {}", self.ogl.frame);
 
             self.draw_gui();
             rgb = self.gui.values.bg.to_rgb();
