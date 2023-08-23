@@ -24,7 +24,7 @@ jobs:
     - name: Install ffmpeg
       run: |
         git clone https://git.ffmpeg.org/ffmpeg.git
-        mkdir tmp/sources && mkdir tmp/installed && mkdir tmp/build/ffmpeg
+        mkdir tmp && mkdir tmp/sources && mkdir tmp/installed && mkdir tmp/build && mkdir tmp/build/ffmpeg
         cd tmp/build/ffmpeg
         CC=cl PKG_CONFIG_PATH=../../installed/lib/pkgconfig ../../sources/ffmpeg/configure --prefix=../../installed --toolchain=msvc --target-os=win64 --arch=x86_64 --enable-yasm --enable-asm --disable-shared --enable-static --enable-libx264 --enable-gpl --disable-nonfree --enable-debug --extra-ldflags="-LIBPATH:../../installed/lib" --extra-cxxflags="-I../../installed/include/ -MTd -Od -Zi" --extra-cflags="-I../../installed/include/ -MTd -Od -Zi"
         make -j 2
