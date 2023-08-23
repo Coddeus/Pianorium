@@ -12,6 +12,8 @@ Thus you can choose the DAW / video editor you want to create the final video.
 [FFmpeg executable](https://ffmpeg.org/download.html) on the system path.  
 Enough space in memory for the video you want to render.
 
+Soon ffmpeg wont be needed.
+
 ## Rendering
 
 CLI command syntax:
@@ -41,6 +43,16 @@ With:
 - Choose the above parameters,
 - The render can be bigger than the size of your screen,
 - 100% free, open-source, no-watermark, and forever!
+
+## Contributing
+Found a bug, have a feature idea? Issues are welcome to help the development of this project!
+
+To build the codebase, you will need: 
+- [[guide]](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building) FFmpeg manually installed to be statically linked with the ffmpeg-next crate
+- [[guide]](https://github.com/Rust-SDL2/rust-sdl2) SDL2 manually installed to be statically linked with the sdl2 crate
+
+Debugging (F5) should work on VSCode after installing these libraries.  
+For other IDEs, you might want to rewrite the .vscode/ behaviour if you don't want to rewrite `cargo run -- 800 600 60.0 6 ./test.mid ./output.mp4 ./output.png false` every build.
 
 ## Credits
 If you use this software (e.g. for videos), please consider crediting to it. For example:  

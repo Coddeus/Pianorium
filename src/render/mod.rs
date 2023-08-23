@@ -80,6 +80,8 @@ pub fn concat_mp4(output: &str) {
         .arg("index.txt")
         .arg("-c")
         .arg("copy")
+        .arg("-movflags") 
+        .arg("faststart")
         .arg("-y")
         .arg(output)
         .output()

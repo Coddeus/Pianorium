@@ -19,7 +19,7 @@ pub struct Notes {
 }
 
 impl Notes {
-    pub fn from_midi(framerate: f32, midi_file: &str) -> std::io::Result<(Notes, usize)> { // Done Twice instead of just ….clone().iter_mut { +0.5 }
+    pub fn from_midi(wh_ratio: f32, framerate: f32, midi_file: &str) -> std::io::Result<(Notes, usize)> { // Done Twice instead of just ….clone().iter_mut { +0.5 }
         let mut notes: Vec<Note> = vec![];
         let mut blacknotes: Vec<Note> = vec![];
         let mut active_notes: Vec<Option<Note>> = vec![None; 128];
@@ -116,12 +116,12 @@ impl Notes {
             vert: vec![],
             ind: vec![],
         };
-        new.notes_to_vertices().unwrap();
+        new.notes_to_vertices(wh_ratio).unwrap();
 
         Ok((new, max_frame))
     }
 
-    pub fn notes_to_vertices(&mut self) -> std::io::Result<()>{
+    pub fn notes_to_vertices(&mut self, wh_ratio: f32) -> std::io::Result<()>{
         for (i, n) in self.notes.iter().enumerate() {
             let ver2: Vec<f32> = vec![
                  //               x                             y          color  
@@ -130,10 +130,10 @@ impl Notes {
                  LAYOUT[n.note as usize-21][1],         (n.end),            1.0,
                  LAYOUT[n.note as usize-21][0],         (n.end),            1.0,
                  //               x                             y          color 
-                 LAYOUT[n.note as usize-21][0]+0.007,   (n.start+0.007),    0.9,
-                 LAYOUT[n.note as usize-21][1]-0.007,   (n.start+0.007),    0.9,
-                 LAYOUT[n.note as usize-21][1]-0.007,   (n.end-0.007),      0.9,
-                 LAYOUT[n.note as usize-21][0]+0.007,   (n.end-0.007),      0.9,
+                 LAYOUT[n.note as usize-21][0]+0.007,   (n.start+0.007*wh_ratio),    0.9,
+                 LAYOUT[n.note as usize-21][1]-0.007,   (n.start+0.007*wh_ratio),    0.9,
+                 LAYOUT[n.note as usize-21][1]-0.007,   (n.end-0.007*wh_ratio),      0.9,
+                 LAYOUT[n.note as usize-21][0]+0.007,   (n.end-0.007*wh_ratio),      0.9,
             ];
             self.vert.extend(ver2);
 

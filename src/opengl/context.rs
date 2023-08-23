@@ -102,7 +102,7 @@ impl OpenGLContext {
 
         let speed: f32 = cores as f32/framerate;
         let frame: usize = 0;
-        let (notes, max_frame) = Notes::from_midi(framerate, midi_file).unwrap();
+        let (notes, max_frame) = Notes::from_midi(width as f32/height as f32, framerate, midi_file).unwrap();
 
         let particles: Particles = Particles::new();
 

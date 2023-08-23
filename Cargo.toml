@@ -4,23 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-egui_sdl2_gl = { version = "*", features = ["sdl2_static-link", "sdl2_use-vcpkg"] }
+egui_sdl2_gl = { version = "*", features = ["sdl2_static-link"] }
 midly = "*"
 num_cpus = "*"
 rand = "*"
-ffmpeg-next = { version = "6.0.0", features = ["static"] }
-
-[build-dependencies]
-vcpkg = "*"
-
-[package.metadata.vcpkg]
-git = "https://github.com/microsoft/vcpkg"
-rev = "9edb1b8"
-dependencies = ["sdl2", "ffmpeg"]
-
-[package.metadata.vcpkg.target]
-x86_64-apple-darwin = { dependencies = ["sdl2", "ffmpeg" ] }
-x86_64-unknown-linux-gnu = { dependencies = ["sdl2", "ffmpeg"] }
-x86_64-pc-windows-msvc = { triplet = "x64-windows-static-md", dependencies = ["sdl2", "ffmpeg"] }
-
-# [package.manifest.vcpkg]
+ffmpeg-next = "*"

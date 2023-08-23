@@ -3,25 +3,22 @@
     "tasks": [
         {
             "label": "cargo build",
+            "env": {
+                "RUST_BACKTRACE": "1",
+                "CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG": "true",
+            },
             "type": "cargo",
             "command": "build",
             "args": [
+                "-v",
             ],
         },
         {
             "label": "cargo build release",
+            "type": "cargo",
             "command": "build",
             "args": [
                 "--release",
-                "--",
-                "1200",
-                "900",
-                "60.0",
-                "11",
-                "test.mid",
-                "output.mp4",
-                "output.png",
-                "false",
             ],
         },
     ]

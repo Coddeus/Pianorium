@@ -1,7 +1,8 @@
 extern crate egui_sdl2_gl;
+extern crate ffmpeg_next as ffmpeg;
+extern crate midly;
 extern crate num_cpus;
 extern crate rand;
-extern crate midly;
 
 pub mod actions;
 pub mod fs;
@@ -27,7 +28,7 @@ fn main() {
 }
 
 // fn draw_gui() { // Struct with Impl
-// 
+//
 //     egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
 //     egui_ctx.begin_frame(egui_state.input.take());
 //     egui::CentralPanel::default().show(&egui_ctx, |ui| {
