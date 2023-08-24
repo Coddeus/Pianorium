@@ -29,7 +29,7 @@ jobs:
         
     - name: find dependencies paths
       run: |
-        find / -name "libavcodec.a" && find / -name "libSDL2.a"
+        sudo find / -name libavcodec.a && sudo find / -name libSDL2.a
 
     - name: Build
       run : cargo build --verbose
@@ -42,8 +42,8 @@ jobs:
     - name: Install dependencies
       run: |
         brew install sdl2 ffmpeg pkg-config
-        Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
-        Add-Content $env:GITHUB_PATH "/usr/local/Cellar/SDL2/2.28.2"
+        Add-Content $env:GITHUB_ENV "FFMPEG_DIR=/usr/local/Cellar/ffmpeg/6.0"
+        Add-Content $env:GITHUB_PATH "/usr/local/Cellar/SDL2/2.28.2" #RUSTFLAGS
 
     - name: Build
       run: cargo build --verbose
@@ -52,12 +52,17 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v3
+
     - name: Install dependencies
       run: |
         Invoke-WebRequest "https://libsdl.org/release/SDL2-2.28.2.zip" -OutFile SDL2-2.28.2.zip
         7z x SDL2-2.28.2.zip
         mkdir SDL2
         mv SDL2-*/* SDL2/
+        cd SDL2
+        ./configure
+        make
+        make install
         $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
         Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
         Invoke-WebRequest "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z" -OutFile ffmpeg-release-full-shared.7z
@@ -65,5 +70,6 @@ jobs:
         mkdir ffmpeg
         mv ffmpeg-*/* ffmpeg/
         Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+
     - name: Build
       run: cargo build --verbose
