@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs: # Add caching
-  build-linux: # SDL2 works
+  build-linux:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -44,8 +44,8 @@ jobs: # Add caching
         # Add-Content $env:GITHUB_ENV "FFMPEG_DIR=/usr/local/Cellar/ffmpeg/6.0"
         # Add-Content $env:GITHUB_PATH "/usr/local/Cellar/SDL2/2.28.2" #RUSTFLAGS
 
-    - name: Find dependencies paths
-      run: # sudo find / -name libavutil.pc && sudo find / -name libavutil.a && sudo find / -name libSDL2.a
+    # - name: Find dependencies paths
+    #   run: sudo find / -name libavutil.pc && sudo find / -name libavutil.a && sudo find / -name libSDL2.a
 
     - name: Build
       run: RUST_BACKTRACE=1 cargo build --verbose
