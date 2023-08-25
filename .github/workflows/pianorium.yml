@@ -10,45 +10,45 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs: # Add caching
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Install dependencies
-      run: |
-        cd /home
-        sudo apt-get update -y -qq && sudo apt-get -y install ffmpeg libsdl2-2.0-0
-
-    - name: Check SDL2
-      shell: bash
-      run: |
-        set -xeuo pipefail
-        rustc --version
-        cargo --version
-        
-    - name: Find dependencies paths
-      run: find / -name libavutil.pc && find / -name libavutil.a && find / -name libSDL2.a
-
-    - name: Build
-      run : PKG_CONFIG_PATH="/home/ffmpeg" RUST_BACKTRACE=1 cargo build --verbose
-
-  build-macos:
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Install dependencies
-      run: |
-        brew install sdl2 ffmpeg pkg-config
-        # Add-Content $env:GITHUB_ENV "FFMPEG_DIR=/usr/local/Cellar/ffmpeg/6.0"
-        # Add-Content $env:GITHUB_PATH "/usr/local/Cellar/SDL2/2.28.2" #RUSTFLAGS
-
-    # - name: Find dependencies paths
-    #   run: sudo find / -name libavutil.pc && sudo find / -name libavutil.a && sudo find / -name libSDL2.a
-
-    - name: Build
-      run: RUST_BACKTRACE=1 cargo build --verbose
+#  build-linux:
+#    runs-on: ubuntu-latest
+#    steps:
+#    - uses: actions/checkout@v3
+#
+#    - name: Install dependencies
+#      run: |
+#        cd /home
+#        sudo apt-get update -y -qq && sudo apt-get -y install ffmpeg libsdl2-2.0-0
+#
+#    - name: Check SDL2
+#      shell: bash
+#      run: |
+#        set -xeuo pipefail
+#        rustc --version
+#        cargo --version
+#        
+#    - name: Find dependencies paths
+#      run: sudo find / -name libavutil.pc && sudo find / -name libavutil.a && sudo find / -name libSDL2.a
+#
+#    - name: Build
+#      run : PKG_CONFIG_PATH="/home/ffmpeg" RUST_BACKTRACE=1 cargo build --verbose
+#
+#  build-macos:
+#    runs-on: macos-latest
+#    steps:
+#    - uses: actions/checkout@v3
+#
+#    - name: Install dependencies
+#      run: |
+#        brew install sdl2 ffmpeg pkg-config
+#        # Add-Content $env:GITHUB_ENV "FFMPEG_DIR=/usr/local/Cellar/ffmpeg/6.0"
+#        # Add-Content $env:GITHUB_PATH "/usr/local/Cellar/SDL2/2.28.2" #RUSTFLAGS
+#
+#    # - name: Find dependencies paths
+#    #   run: sudo find / -name libavutil.pc && sudo find / -name libavutil.a && sudo find / -name libSDL2.a
+#
+#    - name: Build
+#      run: RUST_BACKTRACE=1 cargo build --verbose
 
   build-windows:
     runs-on: windows-latest
@@ -77,8 +77,9 @@ jobs: # Add caching
       shell: cmd
       run: |
         cd D:\
-        dir /s libavutil.a && dir /s libSDL2.a
+        dir /s avutil.lib & dir /s libavutil.pc & dir /s libSDL2.a & dir /s SDL2.lib
         cd D:\a\Pianorium\Pianorium
 
     - name: Build
+      shell: bash
       run: RUST_BACKTRACE=1 cargo build --verbose
