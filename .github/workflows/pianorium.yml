@@ -71,6 +71,7 @@ jobs: # Add caching
     
     - name: Update Msys deps
       shell: msys2 {0}
+      continue-on-error: true
       run: |
         pacman -Syu --noconfirm
 
