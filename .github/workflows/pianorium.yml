@@ -77,9 +77,9 @@ jobs: # Add caching
     - name: Install Msys deps
       shell: msys2 {0}
       run: |
-        pacman -Syu
+        pacman -Syu --noconfirm
         y
-        pacman -S make git diffutils nasm yasm pkgconf
+        pacman -S --noconfirm make git diffutils nasm yasm pkgconf
         y
 
     - name: Install SDL2
