@@ -57,7 +57,7 @@ jobs: # Add caching
 
     - name: Install dependencies
       run: |
-        Invoke-WebRequest "https://libsdl.org/release/SDL2-2.28.2.zip" -OutFile SDL2-2.28.2.zip
+        Invoke-WebRequest "https://github.com/libsdl-org/SDL/releases/download/release-2.28.2/SDL2-devel-2.28.2-mingw.zip" -OutFile SDL2-2.28.2.zip
         7z x SDL2-2.28.2.zip
         mkdir SDL2
         mv SDL2-*/* SDL2/
@@ -65,6 +65,7 @@ jobs: # Add caching
         ./configure
         make
         make install
+        cd ..
         $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
         Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
         Invoke-WebRequest "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z" -OutFile ffmpeg-release-full-shared.7z
