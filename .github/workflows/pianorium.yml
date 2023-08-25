@@ -9,18 +9,68 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-jobs:
-  build-linux:
+jobs: # Add caching
+  build-linux: # SDL2 works
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
 
     - name: Install dependencies
       run: |
-        sudo apt-get update -y -qq
-        sudo apt-get install -y libsdl2-dev clang ffmpeg pkg-config
+        cd /home
+        mkdir -p ~/ffmpeg_sources ~/bin
+        sudo apt-get update -y -qq && sudo apt-get -y install \
+          autoconf \
+          automake \
+          build-essential \
+          cmake \
+          clang \
+          ffmpeg \
+          git-core \
+          libass-dev \
+          libfreetype6-dev \
+          libgnutls28-dev \
+          libmp3lame-dev \
+          libnuma-dev \
+          libsdl2-dev \
+          libtool \
+          libva-dev \
+          libvdpau-dev \
+          libvorbis-dev \
+          libx264-dev \
+          libx265-dev \
+          libxcb1-dev \
+          libxcb-shm0-dev \
+          libxcb-xfixes0-dev \
+          meson \
+          nasm \
+          ninja-build \
+          pkg-config \
+          texinfo \
+          wget \
+          yasm \
+          zlib1g-dev
+        sudo apt install libunistring-dev libaom-dev libdav1d-dev
+        cd ~/ffmpeg_sources && \
+        wget -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
+        tar xjvf ffmpeg-snapshot.tar.bz2 && \
+        cd ffmpeg && \
+        PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
+          --prefix="$HOME/ffmpeg_build" \
+          --pkg-config-flags="--static" \
+          --extra-cflags="-I$HOME/ffmpeg_build/include" \
+          --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
+          --extra-libs="-lpthread -lm" \
+          --ld="g++" \
+          --bindir="$HOME/bin" \
+          --enable-gpl \
+          --enable-libx264 && \
+        PATH="$HOME/bin:$PATH" make -j 2 && \
+        make install && \
+        hash -r && \
+        source ~/.profile
 
-    - name: Build SDL2
+    - name: Check SDL2
       shell: bash
       run: |
         set -xeuo pipefail
@@ -42,8 +92,8 @@ jobs:
     - name: Install dependencies
       run: |
         brew install sdl2 ffmpeg pkg-config
-        Add-Content $env:GITHUB_ENV "FFMPEG_DIR=/usr/local/Cellar/ffmpeg/6.0"
-        Add-Content $env:GITHUB_PATH "/usr/local/Cellar/SDL2/2.28.2" #RUSTFLAGS
+        # Add-Content $env:GITHUB_ENV "FFMPEG_DIR=/usr/local/Cellar/ffmpeg/6.0"
+        # Add-Content $env:GITHUB_PATH "/usr/local/Cellar/SDL2/2.28.2" #RUSTFLAGS
 
     - name: Build
       run: cargo build --verbose
