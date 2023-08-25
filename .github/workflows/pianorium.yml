@@ -58,10 +58,27 @@ jobs: # Add caching
 #     - name: Build
 #       run: RUST_BACKTRACE=1 cargo build --verbose
 
-  build-windows:
+  build-windows-msys:
     runs-on: windows-latest
     steps:
+    - shell: pwsh
+      run: git config --global core.autocrlf input
     - uses: actions/checkout@v3
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: mingw64
+        install: mingw-w64-x86_64-openssl
+    
+    - name: Update Msys deps
+      shell: msys2 {0}
+      run: |
+        pacman -Syu
+
+    - name: Install Msys deps
+      shell: msys2 {0}
+      run: |
+        pacman -Syu
+        pacman -S make git diffutils nasm yasm pkgconf
 
     - name: Install SDL2
       shell: pwsh
@@ -70,17 +87,24 @@ jobs: # Add caching
         7z x SDL2-2.28.2.zip
         Copy-Item -Path "SDL2-2.28.2\x86_64-w64-mingw32\lib\*" -Destination "C:\Users\runneradmin\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib\rustlib\x86_64-pc-windows-msvc\lib" -Recurse
         $VCINSTALLDIR = $(& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath)
-        mkdir -p ffmpeg/source & mkdir -p ffmpeg/build & mkdir -p ffmpeg/installed
+        mkdir -p deps/source/x264 & mkdir -p deps/source/ffmpeg & mkdir -p deps/build/x264 & mkdir -p deps/build/ffmpeg & mkdir -p deps/installed
         Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
-        Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg\installed`n"
+        Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\deps\installed`n"
 
-    - name: Install FFmpeg
-      shell: bash
+    - name: Install x264 and FFmpeg
+      shell: sh
       run: |
-        git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg/source
-        CC=cl PKG_CONFIG_PATH=ffmpeg/installed/lib/pkgconfig ffmpeg/source/configure --prefix=ffmpeg/installed --toolchain=msvc --target-os=win64 --arch=x86_64 --enable-yasm --enable-asm --disable-shared --enable-static --enable-libx264 --enable-libx265 --enable-gpl --enable-version3 --disable-debug --enable-optimizations --extra-ldflags="-LIBPATH:ffmpeg/installed/lib" --extra-cxxflags="-Iffmpeg/installed/include/ -MTd -Od -Zi" --extra-cflags="-Iffmpeg/installed/include/ -MTd -Od -Zi"
+        git clone https://code.videolan.org/videolan/x264.git deps/source/x264
+        curl "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD" > deps/source/x264/config.guess
+        sed -i 's/host_os = mingw/host_os = msys/' deps/source/x264/configure
+        CC=cl deps/source/x264/configure --prefix=deps/installed --enable-static
         make -j 2
         make install
+        git clone https://git.ffmpeg.org/ffmpeg.git deps/source/ffmpeg
+        CC=cl PKG_CONFIG_PATH=deps/installed/lib/pkgconfig deps/source/configure --prefix=deps/installed --toolchain=msvc --target-os=win64 --arch=x86_64 --enable-yasm --enable-asm --disable-shared --enable-static --enable-libx264 --enable-libx265 --enable-gpl --enable-version3 --disable-debug --enable-optimizations --extra-ldflags="-LIBPATH:deps/installed/lib" --extra-cxxflags="-Ideps/installed/include/ -MTd -Od -Zi" --extra-cflags="-Ideps/installed/include/ -MTd -Od -Zi"
+        make -j 2
+        make install
+
     # # DEBUG
     # - name: Find dependencies paths
     #   shell: cmd
@@ -89,5 +113,5 @@ jobs: # Add caching
     #     dir /s avutil.lib & dir /s libSDL2.a & dir /s sdl2.pc
 
     - name: Build
-      shell: bash
+      shell: sh
       run: RUST_BACKTRACE=1 cargo build --verbose
