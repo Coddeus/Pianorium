@@ -77,9 +77,8 @@ jobs: # Add caching
         rustc --version
         cargo --version
         
-    - name: find dependencies paths
-      run: |
-        sudo find / -name libavcodec.a && sudo find / -name libSDL2.a
+    - name: Find dependencies paths
+      run: sudo find / -name libavutil.a && sudo find / -name libSDL2.a
 
     - name: Build
       run : cargo build --verbose
@@ -94,6 +93,9 @@ jobs: # Add caching
         brew install sdl2 ffmpeg pkg-config
         # Add-Content $env:GITHUB_ENV "FFMPEG_DIR=/usr/local/Cellar/ffmpeg/6.0"
         # Add-Content $env:GITHUB_PATH "/usr/local/Cellar/SDL2/2.28.2" #RUSTFLAGS
+
+    - name: Find dependencies paths
+      run: find / -name libavutil.a && find / -name libSDL2.a
 
     - name: Build
       run: cargo build --verbose
@@ -120,6 +122,12 @@ jobs: # Add caching
         mkdir ffmpeg
         mv ffmpeg-*/* ffmpeg/
         Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\ffmpeg`n"
+        
+    - name: Find dependencies paths
+      run: |
+        cd D:\
+        dir libavutil.a /s && dir libSDL2.a /s
+        cd D:\a\Pianorium\Pianorium
 
     - name: Build
       run: cargo build --verbose
