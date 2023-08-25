@@ -72,7 +72,7 @@ jobs: # Add caching
     - name: Update Msys deps
       shell: msys2 {0}
       run: |
-        pacman -Syu
+        pacman -Syu --noconfirm
 
     - name: Install Msys deps
       shell: msys2 {0}
