@@ -40,6 +40,7 @@ jobs: # Add caching
 
     - name: Install dependencies
       run: |
+        sudo port install curl
         curl -O https://github.com/libsdl-org/SDL/releases/download/release-2.28.2/SDL2-2.28.2.tar.gz
         7z x SDL2-2.28.2.tar.gz
         cp -r SDL2-2.28.2/x86_64-w64-mingw32/lib/ /Users/runner/.rustup/toolchains/stable-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/lib/
