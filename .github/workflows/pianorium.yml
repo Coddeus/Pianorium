@@ -71,7 +71,7 @@ jobs: # Add caching
       shell: cmd
       run: |
         cd D:\a\Pianorium\Pianorium
-        dir /s avutil.lib & dir /s libavutil.pc & dir /s libSDL2.a & dir /s SDL2.lib
+        dir /s avutil.lib & dir /s libSDL2.a & dir /s sdl2.pc
 
     - name: Build
       shell: bash
