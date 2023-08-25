@@ -78,7 +78,9 @@ jobs: # Add caching
       shell: msys2 {0}
       run: |
         pacman -Syu
+        y
         pacman -S make git diffutils nasm yasm pkgconf
+        y
 
     - name: Install SDL2
       shell: pwsh
