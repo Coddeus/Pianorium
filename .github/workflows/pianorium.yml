@@ -79,7 +79,7 @@ jobs: # Add caching
       shell: msys2 {0}
       run: |
         pacman -Syu --noconfirm
-        pacman -S --noconfirm make git diffutils nasm yasm pkgconf mingw-w64-x86_64-gcc
+        pacman -S --noconfirm make git diffutils nasm yasm pkgconf mingw-w64-ucrt-x86_64-gcc
 
     # DEBUG
     - name: Find dependencies paths
@@ -99,7 +99,8 @@ jobs: # Add caching
         Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
         Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\deps\installed`n"
         Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\usr\bin`n"
-        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\mingw\bin`n"
+        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\mingw64\bin`n"
+        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\mingw64\x86_64-w64-mingw32\bin`n"
 
     - name: Install x264 and FFmpeg
       shell: msys2 {0}
