@@ -81,6 +81,13 @@ jobs: # Add caching
         pacman -Syu --noconfirm
         pacman -S --noconfirm make git diffutils nasm yasm pkgconf
 
+    # DEBUG
+    - name: Find dependencies paths
+      shell: cmd
+      run: |
+        cd D:/
+        dir /s gcc.exe make.exe
+
     - name: Install SDL2
       shell: pwsh
       run: |
