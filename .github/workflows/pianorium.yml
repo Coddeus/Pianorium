@@ -61,7 +61,7 @@ jobs: # Add caching
   build-windows-msys:
     runs-on: windows-latest
     steps:
-    - name: Make @Msys and @Checkout compatible
+    - name: Make @msys and @checkout compatible
       shell: pwsh
       run: git config --global core.autocrlf input
 
