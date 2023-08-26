@@ -63,37 +63,31 @@ jobs: # Add caching
     steps:
     - shell: pwsh
       run: git config --global core.autocrlf input
+
     - uses: actions/checkout@v3
+
     - uses: msys2/setup-msys2@v2
       with:
         msystem: mingw64
-        install: mingw-w64-x86_64-openssl
+        install: mingw-w64-x86_64-openssl make git diffutils nasm yasm pkgconf mingw-w64-x86_64-gcc
+
+    - shell: pwsh
+      run: |
+        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64`n"
+        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\usr\bin`n"
+        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\mingw64\bin`n"
+        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\mingw64\x86_64-w64-mingw32\bin`n"
 
     - uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
-    
-    - name: Launch Msys shell
-      run: D:\a\_temp\msys64\msys2_shell.cmd
-    
+
     - name: Update Msys core
-      shell: msys2_shell
       continue-on-error: true
       run: |
+        msys2_shell.cmd
         pacman -Syu --noconfirm
-
-    - uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: x64
-    
-    - name: Relaunch Msys shell
-      run: D:\a\_temp\msys64\msys2_shell.cmd
-
-    - name: Install Msys deps
-      shell: msys2_shell
-      run: |
-        pacman -Syu --noconfirm
-        pacman -S --noconfirm make git diffutils nasm yasm pkgconf mingw-w64-x86_64-gcc
+        mv usr/bin/link.exe usr/bin/link.exe.bak
 
     # DEBUG
     - name: Find dependencies paths
@@ -112,13 +106,15 @@ jobs: # Add caching
         mkdir -p deps/source/x264 & mkdir -p deps/source/ffmpeg & mkdir -p deps/build/x264 & mkdir -p deps/build/ffmpeg & mkdir -p deps/installed
         Add-Content $env:GITHUB_ENV "LIBCLANG_PATH=${VCINSTALLDIR}\VC\Tools\LLVM\x64\bin`n"
         Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\deps\installed`n"
-        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\usr\bin`n"
-        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\mingw64\bin`n"
-        Add-Content $env:GITHUB_PATH "D:\a\_temp\msys64\mingw64\x86_64-w64-mingw32\bin`n"
+
+    - uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
 
     - name: Install x264 and FFmpeg
-      shell: msys2_shell
       run: |
+        msys2_shell.cmd
+        cd D:/a/Pianorium/Pianorium
         git clone https://code.videolan.org/videolan/x264.git deps/source/x264
         curl "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD" > deps/source/x264/config.guess
         sed -i 's/host_os = mingw/host_os = msys/' deps/source/x264/configure
