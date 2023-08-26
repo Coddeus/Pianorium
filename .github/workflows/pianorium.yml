@@ -79,9 +79,7 @@ jobs: # Add caching
       shell: msys2 {0}
       run: |
         pacman -Syu --noconfirm
-        y
         pacman -S --noconfirm make git diffutils nasm yasm pkgconf
-        y
 
     - name: Install SDL2
       shell: pwsh
@@ -95,7 +93,7 @@ jobs: # Add caching
         Add-Content $env:GITHUB_ENV "FFMPEG_DIR=${pwd}\deps\installed`n"
 
     - name: Install x264 and FFmpeg
-      shell: sh
+      shell: msys2 {0}
       run: |
         git clone https://code.videolan.org/videolan/x264.git deps/source/x264
         curl "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=HEAD" > deps/source/x264/config.guess
