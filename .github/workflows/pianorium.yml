@@ -79,14 +79,14 @@ jobs: # Add caching
       shell: msys2 {0}
       run: |
         pacman -Syu --noconfirm
-        pacman -S --noconfirm make git diffutils nasm yasm pkgconf mingw-w64-ucrt-x86_64-gcc
+        pacman -S --noconfirm make git diffutils nasm yasm pkgconf mingw-w64-x86_64-gcc
 
     # DEBUG
     - name: Find dependencies paths
       shell: cmd
       run: |
         cd D:/
-        dir /s gcc.exe make.exe
+        dir /s gcc.* make.*
 
     - name: Install SDL2
       shell: pwsh
