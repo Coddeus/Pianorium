@@ -86,7 +86,7 @@ jobs: # Add caching
       shell: cmd
       run: |
         cd D:/
-        dir /s gcc.* make.*
+        dir /s gcc.exe make.exe msys64_shell.cmd vcvars64.bat msys2_shell.cmd
 
     - name: Install SDL2
       shell: pwsh
