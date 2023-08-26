@@ -68,6 +68,11 @@ jobs: # Add caching
     - name: Use @checkout
       uses: actions/checkout@v3
 
+    - name: Install VS Build tools
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        choco install visualstudio2022buildtools
+
     - name: Install Msys and required libraries
       uses: msys2/setup-msys2@v2
       with:
