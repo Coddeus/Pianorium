@@ -106,4 +106,4 @@ jobs: # Add caching
 
     - name: Build
       shell: sh
-      run: RUST_BACKTRACE=1 cargo build --verbose
+      run: CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true RUST_BACKTRACE=1 cargo build --verbose
