@@ -8,4 +8,4 @@ egui_sdl2_gl = { version = "*", features = ["sdl2_static-link"] }
 midly = "*"
 num_cpus = "*"
 rand = "*"
-ffmpeg-next = { version = "*", features = ["static", "avcodec", "avdevice", "avfilter", "avformat", "swresample", "swscale"]}
+ffmpeg-next = { version = "*", features = ["static", "codec", "device", "filter", "format", "software-resampling", "software-scaling"] } 
