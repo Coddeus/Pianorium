@@ -78,7 +78,7 @@ jobs: # Add caching
   
       - name: Update GitHub $ENV and $PATH
         shell: pwsh
-        run: D:/a/Pianorium/Pianorium/script/windows/env-path.ps1
+        run: D:/a/Pianorium/Pianorium/script/windows/env-path.ps1 | Out-Null
   
       - name: Launch x64 Native Tools Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
@@ -86,7 +86,7 @@ jobs: # Add caching
           arch: x64
       - name: Update Msys packages
         continue-on-error: true
-        run: msys2_shell.cmd -c "D:/a/Pianorium/Pianorium/script/windows/pacman_update.sh"
+        run: msys2_shell.cmd -c "D:/a/Pianorium/Pianorium/script/windows/pacman_update.sh" | Out-Null
   
       # DEBUG
       - name:  \[DEBUG\] Find files paths
@@ -104,11 +104,11 @@ jobs: # Add caching
         with:
           arch: x64
       - name: Install x264 and FFmpeg
-        run: msys2_shell.cmd -c "D:/a/Pianorium/Pianorium/script/windows/x264-ffmpeg.sh"
+        run: msys2_shell.cmd -c "D:/a/Pianorium/Pianorium/script/windows/x264-ffmpeg.sh" | Out-Null
   
       - name: Build
         shell: sh
-        run: CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true RUST_BACKTRACE=1 cargo build --verbose
+        run: cargo build --verbose
 
 
 
