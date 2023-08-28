@@ -26,10 +26,9 @@ jobs:
     - name: (DEBUG) Find paths
       continue-on-error: true
       run: |
-        sudo find / -name libavutil.a
-        sudo find / -name libavutil.h
+        sudo find / -name *avutil*
+        sudo find / -name *avutil*
         sudo find / -name libSDL2main.a
-        sudo find / -name libSDL2-static.a
         sudo find / -name libSDL2.a
 
     - name: Build
@@ -51,11 +50,11 @@ jobs:
     - name: (DEBUG) Find paths
       continue-on-error: true
       run: |
-        sudo find / -name libavutil.a
-        sudo find / -name libavutil.h
-        sudo find / -name libSDL2main.a
-        sudo find / -name libSDL2-static.a
-        sudo find / -name libSDL2.a
+        sudo find /usr/local/Cellar -name *avutil*
+        sudo find /usr/local/Cellar -name *avutil*
+        sudo find /usr/local/Cellar -name *ffmpeg*
+        sudo find /usr/local/Cellar -name libSDL2main.a
+        sudo find /usr/local/Cellar -name libSDL2.a
   
     - name: Build
       shell: sh
