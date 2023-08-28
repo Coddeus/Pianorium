@@ -11,7 +11,67 @@ env:
   CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: true
   RUST_BACKTRACE: 1
 
-jobs: # Add caching
+jobs: 
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Use @checkout
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt-get -y --no-install-recommends clang curl libsdl2-dev ffmpeg pkg-config
+
+    - name: Build
+      shell: sh
+      run: cargo build --release --verbose
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - name: Use @checkout
+      uses: actions/checkout@v3
+  
+    - name: Install FFmpeg
+      shell: sh
+      run: |
+        echo export LIBRARY_PATH=\"$LIBRARY_PATH:$(brew --prefix)/lib\" >> ~/.bash_profile
+        brew install sdl2 ffmpeg pkg-config
+  
+    - name: Build
+      shell: sh
+      run: cargo build --release --verbose
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - name: Use @checkout
+      uses: actions/checkout@v3
+  
+    - name: Install SDL2
+      shell: pwsh
+      run: "D:/a/Pianorium/Pianorium/script/windows/SDL2-prebuilt.ps1"
+  
+    - name: Install FFmpeg
+      shell: pwsh
+      run: "D:/a/Pianorium/Pianorium/script/windows/ffmpeg-prebuilt.ps1"
+  
+    - name: Build
+      shell: sh
+      run: cargo build --release --verbose
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  # Add caching
   #  build-linux:
   #    runs-on: ubuntu-latest
   #    steps:
@@ -59,60 +119,60 @@ jobs: # Add caching
   # 
   #     - name: Build
   #       run: RUST_BACKTRACE=1 cargo build --verbose
-  
-    build-windows-msys:
-      runs-on: windows-latest
-      steps:
-#      - name: Make @msys and @checkout compatible
-#        shell: pwsh
-#        run: git config --global core.autocrlf input
-  
-      - name: Use @checkout
-        uses: actions/checkout@v3
-  
-#      - name: Install Msys and required libraries
-#        uses: msys2/setup-msys2@v2
-#        with:
-#          msystem: mingw64
-#          install: make git diffutils nasm yasm pkgconf mingw-w64-x86_64-gcc
-  
-#      - name: Update GitHub $ENV and $PATH
-#        shell: pwsh
-#        run: D:/a/Pianorium/Pianorium/script/windows/env-path.ps1 | Out-Null
-  
-#      - name: Launch x64 Native Tools Command Prompt
-#        uses: ilammy/msvc-dev-cmd@v1
-#        with:
-#          arch: x64
-#      - name: Update Msys packages
-#        continue-on-error: true
-#        run: msys2_shell.cmd -c "D:/a/Pianorium/Pianorium/script/windows/pacman_update.sh" | Out-Null
-  
-#      # DEBUG
-#      - name:  \[DEBUG\] Find files paths
-#        shell: cmd
-#        run: |
-#          cd D:/
-#          dir /s gcc.exe make.exe msys2_shell.cmd vcvars64.bat vcvarsall.bat 
 
-      - name: Install SDL2
-        shell: pwsh
-        run: "D:/a/Pianorium/Pianorium/script/windows/SDL2-prebuilt.ps1"
-
-      - name: Install FFmpeg
-        shell: pwsh
-        run: "D:/a/Pianorium/Pianorium/script/windows/ffmpeg-prebuilt.ps1"
-  
-#      - name: Launch x64 Native Tools Command Prompt
-#        uses: ilammy/msvc-dev-cmd@v1
-#        with:
-#          arch: x64
-#      - name: Install FFmpeg
-#        run: msys2_shell.cmd -c "D:/a/Pianorium/Pianorium/script/windows/x264-ffmpeg.sh" | Out-Null
-  
-      - name: Build
-        shell: sh
-        run: cargo build --verbose
+#     build-windows-msys:
+#       runs-on: windows-latest
+#       steps:
+# #      - name: Make @msys and @checkout compatible
+# #        shell: pwsh
+# #        run: git config --global core.autocrlf input
+#   
+#       - name: Use @checkout
+#         uses: actions/checkout@v3
+#   
+# #      - name: Install Msys and required libraries
+# #        uses: msys2/setup-msys2@v2
+# #        with:
+# #          msystem: mingw64
+# #          install: make git diffutils nasm yasm pkgconf mingw-w64-x86_64-gcc
+#   
+# #      - name: Update GitHub $ENV and $PATH
+# #        shell: pwsh
+# #        run: D:/a/Pianorium/Pianorium/script/windows/env-path.ps1 | Out-Null
+#   
+# #      - name: Launch x64 Native Tools Command Prompt
+# #        uses: ilammy/msvc-dev-cmd@v1
+# #        with:
+# #          arch: x64
+# #      - name: Update Msys packages
+# #        continue-on-error: true
+# #        run: msys2_shell.cmd -c "D:/a/Pianorium/Pianorium/script/windows/pacman_update.sh" | Out-Null
+#   
+# #      # DEBUG
+# #      - name:  \[DEBUG\] Find files paths
+# #        shell: cmd
+# #        run: |
+# #          cd D:/
+# #          dir /s gcc.exe make.exe msys2_shell.cmd vcvars64.bat vcvarsall.bat 
+# 
+#       - name: Install SDL2
+#         shell: pwsh
+#         run: "D:/a/Pianorium/Pianorium/script/windows/SDL2-prebuilt.ps1"
+# 
+#       - name: Install FFmpeg
+#         shell: pwsh
+#         run: "D:/a/Pianorium/Pianorium/script/windows/ffmpeg-prebuilt.ps1"
+#   
+# #      - name: Launch x64 Native Tools Command Prompt
+# #        uses: ilammy/msvc-dev-cmd@v1
+# #        with:
+# #          arch: x64
+# #      - name: Install FFmpeg
+# #        run: msys2_shell.cmd -c "D:/a/Pianorium/Pianorium/script/windows/x264-ffmpeg.sh" | Out-Null
+#   
+#       - name: Build
+#         shell: sh
+#         run: cargo build --release --verbose
 
 
 
