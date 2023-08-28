@@ -16,12 +16,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Use @checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v3      
 
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt-get -y --no-install-recommends clang curl libsdl2-dev ffmpeg pkg-config
+        sudo apt-get -y --no-install-recommends curl libsdl2-dev ffmpeg pkg-config
+    
+    - name: (DEBUG) Find paths
+      run: |
+        cd /
+        sudo find libavutil.h libavutil.a libSDL2main.a libSDL2-static.a libSDL2.a
+        cd  /home/runner/work/Pianorium/Pianorium
 
     - name: Build
       shell: sh
@@ -36,8 +42,14 @@ jobs:
     - name: Install FFmpeg
       shell: sh
       run: |
-        echo export LIBRARY_PATH=\"$LIBRARY_PATH:$(brew --prefix)/lib\" >> ~/.bash_profile
+        echo export LIBRARY_PATH=\"$LIBRARY_PATH:$(brew --prefix)\" >> ~/.bash_profile
         brew install sdl2 ffmpeg pkg-config
+    
+    - name: (DEBUG) Find paths
+      run: |
+        cd /
+        sudo find libavutil.h libavutil.a libSDL2main.a libSDL2-static.a libSDL2.a
+        cd  /Users/runner/work/Pianorium/Pianorium
   
     - name: Build
       shell: sh

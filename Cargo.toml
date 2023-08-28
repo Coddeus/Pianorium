@@ -5,8 +5,11 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-egui_sdl2_gl = { version = "*", features = ["sdl2_static-link", "sdl2_use-pkgconfig"] }
+egui_sdl2_gl = { version = "*", features = ["sdl2_static-link"] }
 ffmpeg-next = { version = "*", features = ["static"] } 
 midly = "*"
 num_cpus = "*"
 rand = "*"
+
+[target.'cfg(unix)'.dependencies.egui_sdl2_gl]
+features = ["sdl2_static-link", "sdl2_use-pkgconfig"]
