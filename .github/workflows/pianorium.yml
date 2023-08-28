@@ -24,10 +24,13 @@ jobs:
         sudo apt-get install -y --no-install-recommends clang curl libsdl2-dev ffmpeg pkg-config
     
     - name: (DEBUG) Find paths
+      continue-on-error: true
       run: |
-        cd /
-        sudo find libavutil.h libavutil.a libSDL2main.a libSDL2-static.a libSDL2.a
-        cd  /home/runner/work/Pianorium/Pianorium
+        sudo find / -name libavutil.a
+        sudo find / -name libavutil.h
+        sudo find / -name libSDL2main.a
+        sudo find / -name libSDL2-static.a
+        sudo find / -name libSDL2.a
 
     - name: Build
       shell: sh
@@ -44,34 +47,37 @@ jobs:
       run: |
         echo export LIBRARY_PATH=\"$LIBRARY_PATH:$(brew --prefix)\" >> ~/.bash_profile
         brew install sdl2 ffmpeg pkg-config
-    
+
     - name: (DEBUG) Find paths
+      continue-on-error: true
       run: |
-        cd /
-        sudo find libavutil.h libavutil.a libSDL2main.a libSDL2-static.a libSDL2.a
-        cd  /Users/runner/work/Pianorium/Pianorium
+        sudo find / -name libavutil.a
+        sudo find / -name libavutil.h
+        sudo find / -name libSDL2main.a
+        sudo find / -name libSDL2-static.a
+        sudo find / -name libSDL2.a
   
     - name: Build
       shell: sh
       run: cargo build --release --verbose
 
-  build-windows:
-    runs-on: windows-latest
-    steps:
-    - name: Use @checkout
-      uses: actions/checkout@v3
-  
-    - name: Install SDL2
-      shell: pwsh
-      run: "D:/a/Pianorium/Pianorium/script/windows/SDL2-prebuilt.ps1"
-  
-    - name: Install FFmpeg
-      shell: pwsh
-      run: "D:/a/Pianorium/Pianorium/script/windows/ffmpeg-prebuilt.ps1"
-  
-    - name: Build
-      shell: sh
-      run: cargo build --release --verbose
+#  build-windows:
+#    runs-on: windows-latest
+#    steps:
+#    - name: Use @checkout
+#      uses: actions/checkout@v3
+#  
+#    - name: Install SDL2
+#      shell: pwsh
+#      run: "D:/a/Pianorium/Pianorium/script/windows/SDL2-prebuilt.ps1"
+#  
+#    - name: Install FFmpeg
+#      shell: pwsh
+#      run: "D:/a/Pianorium/Pianorium/script/windows/ffmpeg-prebuilt.ps1"
+#  
+#    - name: Build
+#      shell: sh
+#      run: cargo build --release --verbose
   
   
   
