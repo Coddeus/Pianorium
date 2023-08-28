@@ -28,7 +28,6 @@ impl Fbo {
 
     fn bind(&self) {
         unsafe { gl::BindFramebuffer(gl::FRAMEBUFFER, self.id); }
-        #[cfg(debug_assertions)]
         self.check()
     }
 

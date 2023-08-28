@@ -19,6 +19,7 @@ mat2 rotate(float angle)
 
 void main()
 {
+    vec2 uv = vec2(u_resolution.x*IN.Position.x, u_resolution.y*IN.Position.y); 
     if (IN.Color == 1.0) {
         Color = vec4((IN.Position.x+1.0)/4.0, 0.1098+(cos(u_time)+1.0)/20.0+IN.Position.y/20.0, 0.1098+(cos(u_time*2.0)+1.0)/20.0, 1.0);
     } 
@@ -57,4 +58,5 @@ void main()
     else if (IN.Color == 0.8) {
         Color = vec4(0.75+(IN.Position.x+1.0)/8.0, 0.5+(cos(u_time)+1.0)/20.0+IN.Position.y/20.0, 0.5+(cos(u_time*3.0)+1.0)/20.0, 1.0);
     }
+    Color=mix(Color, vec4(0.5, 0.0, 1.0, 1.0), (IN.Position.y*0.4+IN.Position.x*0.6*(sin(u_time/2.0))));
 }

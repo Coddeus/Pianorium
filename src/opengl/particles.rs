@@ -69,10 +69,10 @@ impl Particles {
         for (i, p) in self.particles.iter().enumerate() {
             let ver2: Vec<f32> = vec![
                  //      x                 y        color  
-                 p.position.0-0.001, p.position.1-0.001, 0.8,
-                 p.position.0+0.001, p.position.1-0.001, 0.8,
-                 p.position.0+0.001, p.position.1+0.001, 0.8,
-                 p.position.0-0.001, p.position.1+0.001, 0.8,
+                 p.position.0-0.0007, p.position.1-0.0007, 0.8,
+                 p.position.0+0.0007, p.position.1-0.0007, 0.8,
+                 p.position.0+0.0007, p.position.1+0.0007, 0.8,
+                 p.position.0-0.0007, p.position.1+0.0007, 0.8,
             ];
             self.vert.extend(ver2);
 
