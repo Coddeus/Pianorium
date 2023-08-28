@@ -26,10 +26,13 @@ jobs:
     - name: (DEBUG) Find paths
       continue-on-error: true
       run: |
-        sudo find / -name *avutil*
-        sudo find / -name *avutil*
-        sudo find / -name libSDL2main.a
-        sudo find / -name libSDL2.a
+        sudo find /usr -name *avutil*
+        sudo find /usr -name *avutil*
+        sudo find /usr -name *ffmpeg*
+        sudo find /usr -name *SDL2main*
+        sudo find /usr -name *SDL2*
+        sudo echo PKG_CONFIG_LIBDIR
+        sudo echo PKG_CONFIG_PATH
 
     - name: Build
       shell: sh
@@ -43,9 +46,10 @@ jobs:
   
     - name: Install FFmpeg
       shell: sh
+      # echo export LIBRARY_PATH=\"$LIBRARY_PATH:$(brew --prefix)\" >> ~/.bash_profile
       run: |
-        echo export LIBRARY_PATH=\"$LIBRARY_PATH:$(brew --prefix)\" >> ~/.bash_profile
         brew install sdl2 ffmpeg pkg-config
+        export PKG_CONFIG_PATH=/usr/local/Cellar/ffmpeg/6.0/lib/pkgconfig/:/usr/local/Cellar/sdl2/2.28.2/lib/pkgconfig
 
     - name: (DEBUG) Find paths
       continue-on-error: true
@@ -53,8 +57,10 @@ jobs:
         sudo find /usr/local/Cellar -name *avutil*
         sudo find /usr/local/Cellar -name *avutil*
         sudo find /usr/local/Cellar -name *ffmpeg*
-        sudo find /usr/local/Cellar -name libSDL2main.a
-        sudo find /usr/local/Cellar -name libSDL2.a
+        sudo find /usr/local/Cellar -name *SDL2main*
+        sudo find /usr/local/Cellar -name *SDL2*
+        sudo echo PKG_CONFIG_LIBDIR
+        sudo echo PKG_CONFIG_PATH
   
     - name: Build
       shell: sh
