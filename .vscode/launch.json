@@ -7,8 +7,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/pianorium.exe",
             "args": [
-                "1200",
-                "900",
+                "1920",
+                "1080",
                 "60.0",
                 "11",
                 "test.mid",
@@ -25,8 +25,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/target/release/pianorium.exe",
             "args": [
-                "1200",
-                "900",
+                "1920",
+                "1080",
                 "60.0",
                 "11",
                 "test.mid",
