@@ -4,15 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ffmpeg-next = { version = "*", features = ["static", "codec", "device", "filter", "format", "postprocessing", "software-resampling", "software-scaling"] } 
+ffmpeg-next = { version = "*", features = ["static"] }
+egui_sdl2_gl = { version = "*", features = ["sdl2_static-link"] }
 midly = "*"
 num_cpus = "*"
 rand = "*"
-
-[target.'cfg(unix)'.dependencies.egui_sdl2_gl]
-version = "*"
-features = ["sdl2_static-link", "sdl2_use-pkgconfig"]
-
-[target.'cfg(windows)'.dependencies.egui_sdl2_gl]
-version = "*"
-features = ["sdl2_static-link"]
