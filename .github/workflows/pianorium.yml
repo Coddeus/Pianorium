@@ -21,18 +21,18 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt-get install -y --no-install-recommends clang curl libsdl2-dev ffmpeg pkg-config
+        sudo apt-get install -y --no-install-recommends clang curl
     
-    - name: (DEBUG) Find paths
-      continue-on-error: true
-      run: |
-        sudo find /usr -name *avutil*
-        sudo find /usr -name *avutil*
-        sudo find /usr -name *ffmpeg*
-        sudo find /usr -name *SDL2main*
-        sudo find /usr -name *SDL2*
-        sudo echo PKG_CONFIG_LIBDIR
-        sudo echo PKG_CONFIG_PATH
+    # - name: (DEBUG) Find paths
+    #   continue-on-error: true
+    #   run: |
+    #     sudo find /usr -name *avutil*
+    #     sudo find /usr -name *avutil*
+    #     sudo find /usr -name *ffmpeg*
+    #     sudo find /usr -name *SDL2main*
+    #     sudo find /usr -name *SDL2*
+    #     sudo echo PKG_CONFIG_LIBDIR
+    #     sudo echo PKG_CONFIG_PATH
 
     - name: Build
       shell: sh
@@ -44,45 +44,45 @@ jobs:
     - name: Use @checkout
       uses: actions/checkout@v3
   
-    - name: Install FFmpeg
-      shell: sh
-      # echo export LIBRARY_PATH=\"$LIBRARY_PATH:$(brew --prefix)\" >> ~/.bash_profile
-      run: |
-        brew install sdl2 ffmpeg pkg-config
-        export PKG_CONFIG_PATH=/usr/local/Cellar/ffmpeg/6.0/lib/pkgconfig/:/usr/local/Cellar/sdl2/2.28.2/lib/pkgconfig
+    # - name: Install FFmpeg
+    #   shell: sh
+    #   # echo export LIBRARY_PATH=\"$LIBRARY_PATH:$(brew --prefix)\" >> ~/.bash_profile
+    #   # brew install sdl2 ffmpeg pkg-config
+    #   run: |
+    #     export PKG_CONFIG_PATH=/usr/local/Cellar/ffmpeg/6.0/lib/pkgconfig/:/usr/local/Cellar/sdl2/2.28.2/lib/pkgconfig
 
-    - name: (DEBUG) Find paths
-      continue-on-error: true
-      run: |
-        sudo find /usr/local/Cellar -name *avutil*
-        sudo find /usr/local/Cellar -name *avutil*
-        sudo find /usr/local/Cellar -name *ffmpeg*
-        sudo find /usr/local/Cellar -name *SDL2main*
-        sudo find /usr/local/Cellar -name *SDL2*
-        sudo echo PKG_CONFIG_LIBDIR
-        sudo echo PKG_CONFIG_PATH
+    # - name: (DEBUG) Find paths
+    #   continue-on-error: true
+    #   run: |
+    #     sudo find /usr/local/Cellar -name *avutil*
+    #     sudo find /usr/local/Cellar -name *avutil*
+    #     sudo find /usr/local/Cellar -name *ffmpeg*
+    #     sudo find /usr/local/Cellar -name *SDL2main*
+    #     sudo find /usr/local/Cellar -name *SDL2*
+    #     sudo echo PKG_CONFIG_LIBDIR
+    #     sudo echo PKG_CONFIG_PATH
   
     - name: Build
       shell: sh
       run: cargo build --release --verbose
 
-#  build-windows:
-#    runs-on: windows-latest
-#    steps:
-#    - name: Use @checkout
-#      uses: actions/checkout@v3
-#  
-#    - name: Install SDL2
-#      shell: pwsh
-#      run: "D:/a/Pianorium/Pianorium/script/windows/SDL2-prebuilt.ps1"
-#  
-#    - name: Install FFmpeg
-#      shell: pwsh
-#      run: "D:/a/Pianorium/Pianorium/script/windows/ffmpeg-prebuilt.ps1"
-#  
-#    - name: Build
-#      shell: sh
-#      run: cargo build --release --verbose
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - name: Use @checkout
+      uses: actions/checkout@v3
+  
+    # - name: Install SDL2
+    #   shell: pwsh
+    #   run: "D:/a/Pianorium/Pianorium/script/windows/SDL2-prebuilt.ps1"
+    # 
+    # - name: Install FFmpeg
+    #   shell: pwsh
+    #   run: "D:/a/Pianorium/Pianorium/script/windows/ffmpeg-prebuilt.ps1"
+  
+    - name: Build
+      shell: sh
+      run: cargo build --release --verbose
   
   
   

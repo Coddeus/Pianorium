@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ffmpeg-next = { version = "*", features = ["static"] }
+# ffmpeg-next = { version = "*", features = ["static", "codec", "device", "filter", "format", "postprocessing", "software-resampling", "software-scaling"] }
 egui_sdl2_gl = { version = "*", features = ["sdl2_static-link"] }
 midly = "*"
 num_cpus = "*"
-rand = "*"
+rand = "*" 
