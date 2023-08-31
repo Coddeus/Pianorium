@@ -14,7 +14,7 @@ fn main() {
 }
 
 use egui_sdl2_gl::{
-    egui::{self, color::Hsva, color_picker::Alpha, CtxRef, epaint, style, Color32},
+    egui::{self, color::Hsva, color_picker::Alpha, epaint, style, Color32, CtxRef},
     gl::{self, types::*},
     painter::Painter,
     sdl2::{
@@ -27,7 +27,6 @@ use egui_sdl2_gl::{
 };
 
 use std::{
-    env::args,
     f32::consts::PI,
     ffi::{c_void, CStr, CString},
     fs::{create_dir, remove_dir_all, remove_file, File},
@@ -50,524 +49,6 @@ use midly::{
 
 use rand::{thread_rng, Rng};
 
-pub struct Pianorium {
-    // Options for everything & mode chosen
-    pub p: Parameters,
-    pub winsdl: Winsdl,
-    pub ogl: OpenGLContext,
-    pub gui: Gui,
-}
-
-impl Drop for Pianorium {
-    fn drop(&mut self) {
-        if self.p.clear_dir {
-            teardown().unwrap();
-        }
-    }
-}
-
-impl Pianorium {
-    pub fn new() -> Result<Self, &'static str> {
-        // INPUT ARGS
-        let mut args: Vec<String> = args().collect();
-        args.remove(0);
-        let p: Parameters = Parameters::build(&args).unwrap();
-
-        // FS
-        setup().unwrap();
-
-        // WINDOW
-        let winsdl: Winsdl = Winsdl::new(p.width, p.height, p.samples).unwrap();
-
-        // HANDLES FOR OPENGL
-        // let handles: Vec<JoinHandle<OpenGLContext>> = fill_handles(p.width, p.height, p.framerate, p.cores, &p.midi_file).unwrap();
-        let ogl = OpenGLContext::new(p.width, p.height, p.framerate, p.cores, &p.midi_file);
-
-        let gui = Gui::new(&winsdl.window).unwrap();
-
-        Ok(Pianorium {
-            p,
-            winsdl,
-            ogl,
-            gui,
-        })
-    }
-
-    pub fn full_mp4(&mut self) -> Result<(), String> {
-        self.ogl.to_zero();
-        self.winsdl
-            .window
-            .subsystem()
-            .gl_set_swap_interval(SwapInterval::Immediate)
-            .unwrap();
-
-        let mut index = File::create(self.p.index_file.clone()).unwrap();
-        println!("Rendering frames…");
-
-        self.ogl.vbo.set(&self.ogl.notes.vert);
-        self.ogl.vao.set();
-        self.ogl.ibo.set(&self.ogl.notes.ind);
-        self.ogl.program.set_used();
-
-        let tex = Texture::gen();
-        tex.set(self.ogl.width as i32, self.ogl.height as i32);
-        let fbo = Fbo::gen();
-        fbo.set(tex.id);
-
-        let pbo = Pbo::gen();
-        pbo.set(self.ogl.bytes);
-
-        unsafe {
-            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-        }
-
-        unsafe {
-            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-        }
-
-        'record: loop {
-            for event in self.winsdl.event_pump.poll_iter() {
-                match event {
-                    Event::Quit { .. } => break 'record,
-                    _ => {} // egui_state.process_input(&window, event, &mut painter);
-                }
-            }
-
-            // for _u in 0..self.p.cores {
-            // let mut ogl = self.handles.remove(0).join().unwrap();
-            if self.ogl.frame > self.ogl.max_frame {
-                break 'record;
-            } // Stop when it's finished playing
-            unsafe {
-                gl::Uniform1f(self.ogl.u_time.id, self.ogl.frame as f32 / self.p.framerate);
-            }
-
-            self.ogl.update(1.0 / self.ogl.framerate);
-            self.ogl.draw();
-
-            let time = Instant::now();
-            self.ogl.read();
-            println!("Read: {:?}", time.elapsed());
-
-            let time = Instant::now();
-            let ptr: *mut c_void = pbo.map();
-            println!("Map: {:?}", time.elapsed());
-
-            let time = Instant::now();
-            self.ogl
-                .export_mp4(unsafe { from_raw_parts(ptr as *const u8, self.ogl.bytes) });
-            println!("Export: {:?}", time.elapsed());
-
-            pbo.unmap();
-
-            self.ogl.frame += 1;
-            let name: String = format!("temp/{:010}.mp4", self.ogl.frame);
-            let filename: &str = name.as_str();
-            writeln!(index, "file {}", filename).unwrap();
-
-            // self.handles.push(spawn(move ||{
-            //     ogl.export_mp4();
-            //     ogl
-            // }));
-
-            // }
-        }
-        concat_mp4(&self.p.mp4_file.clone()); // ≃1/4 of runtime
-
-        Ok(())
-    }
-
-    pub fn full_png(&mut self) -> Result<(), String> {
-        // let ogl = self.handles.remove(0).join().unwrap();
-
-        self.ogl.to_zero();
-        for y in self.ogl.notes.vert.iter_mut().skip(1).step_by(3) {
-            *y = (*y / (self.ogl.max_frame as f32 / self.ogl.framerate) - 0.5) * 2.;
-        }
-
-        unsafe {
-            gl::Uniform1f(self.ogl.u_time.id, 0.0);
-        }
-        // unsafe { gl::Viewport(0, 0, (self.ogl.width/4) as i32, (self.ogl.height*3) as i32); } // with framebuffer change as well
-        self.ogl.draw();
-        self.ogl.read();
-        let png_file = self.p.png_file.clone();
-        // spawn(move ||{
-        self.ogl.export_png(&png_file);
-        println!("✨ Generated an image of the full song! ✨");
-        // self.ogl.frame += self.ogl.cores;
-        // });
-        // self.ogl = OpenGLContext::new(self.p.width, self.p.height, self.p.framerate, self.p.cores, &self.p.midi_file);
-
-        // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
-
-        Ok(())
-    }
-
-    pub fn play(&mut self) -> Result<(), String> {
-        self.ogl.to_zero();
-        self.winsdl
-            .window
-            .subsystem()
-            .gl_set_swap_interval(SwapInterval::VSync)
-            .unwrap();
-
-        // let ogl = self.handles.remove(0).join().unwrap();
-        // self.ogl.to_zero();
-        let mut rgb: [f32; 3] = [0.1, 0.1, 0.1];
-
-        println!("✨ Playing the visualization ✨");
-        let start_time = Instant::now();
-        let mut since_last: f32;
-        let mut since_start: f32 = 0.0;
-        'play: loop {
-            since_last = start_time.elapsed().as_secs_f32() - since_start;
-            since_start += since_last;
-
-            if self.ogl.frame > self.ogl.max_frame {
-                break 'play;
-            } // Stop when it's finished playing
-
-            self.gui.egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
-            self.gui
-                .egui_ctx
-                .begin_frame(self.gui.egui_state.input.take());
-
-            self.ogl.vbo.set(&self.ogl.notes.vert);
-            self.ogl.vao.set();
-            self.ogl.ibo.set(&self.ogl.notes.ind);
-            self.ogl.program.set_used();
-            unsafe {
-                gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
-                gl::Uniform1f(self.ogl.u_time.id, since_start as f32);
-            }
-            self.ogl.update(since_last);
-            self.ogl.draw();
-            self.ogl.frame += 1;
-
-            self.draw_gui();
-            rgb = self.gui.values.bg.to_rgb();
-
-            let (egui_output, paint_cmds) = self.gui.egui_ctx.end_frame();
-            self.gui
-                .egui_state
-                .process_output(&self.winsdl.window, &egui_output);
-            let paint_jobs = self.gui.egui_ctx.tessellate(paint_cmds);
-            self.gui
-                .painter
-                .paint_jobs(None, paint_jobs, &self.gui.egui_ctx.font_image());
-
-            self.winsdl.window.gl_swap_window();
-
-            // if !egui_output.needs_repaint {
-            //     if let Some(event) = self.winsdl.event_pump.wait_event_timeout(5) {
-            //         match event {
-            //             Event::Quit { .. } => break 'play,
-            //             _ => {
-            //                 // Process input event
-            //                 self.gui.egui_state.process_input(&self.winsdl.window, event, &mut self.gui.painter);
-            //             }
-            //         }
-            //     }
-            // } else {
-            for event in self.winsdl.event_pump.poll_iter() {
-                match event {
-                    Event::Quit { .. } => break 'play,
-                    _ => {
-                        // Process input event
-                        self.gui.egui_state.process_input(
-                            &self.winsdl.window,
-                            event,
-                            &mut self.gui.painter,
-                        );
-                    }
-                }
-            }
-            // }
-        }
-        // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
-
-        Ok(())
-    }
-
-    fn draw_gui(&mut self) {
-        egui::Window::new("Pianorium").show(&self.gui.egui_ctx, |ui| {
-            ui.horizontal(|ui| {
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.gui.values.bg,
-                    self.gui.values.alpha,
-                );
-                ui.label("Background color");
-            });
-            ui.horizontal(|ui| {
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.gui.values.notes,
-                    self.gui.values.alpha,
-                );
-                ui.label("Notes color");
-            });
-            ui.horizontal(|ui| {
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.gui.values.particles,
-                    self.gui.values.alpha,
-                );
-                ui.label("Particles color");
-            });
-        });
-    }
-}
-
-// fn draw_gui() { // Struct with Impl
-//
-//     egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
-//     egui_ctx.begin_frame(egui_state.input.take());
-//     egui::CentralPanel::default().show(&egui_ctx, |ui| {
-//         ui.label(" ");
-//         ui.add(egui::Slider::new(&mut slider, 0.0..=50.0).text("Slider"));
-//         ui.label(" ");
-//     });
-//     let (egui_output, paint_cmds) = egui_ctx.end_frame();
-//     egui_state.process_output(&window, &egui_output);
-//     let paint_jobs = egui_ctx.tessellate(paint_cmds);
-//     painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
-// }
-
-pub fn setup() -> std::io::Result<()> {
-    let _ = remove_dir_all("temp");
-    create_dir("temp")?;
-    Ok(())
-}
-
-pub fn teardown() -> std::io::Result<()> {
-    remove_dir_all("temp")?;
-    let _ = remove_file("index.txt");
-    let _ = remove_file("ff_concat_mp4.log");
-    let _ = remove_file("ff_export_mp4.log");
-    let _ = remove_file("ff_export_png.log");
-    Ok(())
-}
-
-// use std::sync::{Arc, Mutex};
-
-pub struct OpenGLContext {
-    pub width: usize,
-    pub height: usize,
-    pub bytes: usize,
-    pub cores: usize,
-
-    pub frame: usize,
-    pub framerate: f32,
-    pub speed: f32,
-    pub max_frame: usize,
-
-    pub data: Vec<u8>,
-
-    pub notes: Notes,
-    pub particles: Particles,
-
-    pub vbo: Vbo,
-    pub vao: Vao,
-    pub ibo: Ibo,
-
-    pub program: Program,
-    pub u_time: Uniform,
-    pub u_resolution: Uniform,
-}
-
-// pub struct Shared { // Read-only
-//
-// }
-//
-// impl std::fmt::Debug for OpenGLContext {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-//         write!(f, "ogl{}", self.shared.frame)
-//     }
-// }
-//
-// impl Clone for OpenGLContext{
-//     fn clone(&self) -> OpenGLContext {
-//
-//         OpenGLContext {
-//             width: self.width,
-//             height: self.height,
-//             bytes: self.bytes,
-//             cores: self.cores,
-//             framerate: self.framerate,
-//             speed: self.speed,
-//             max_frame: self.max_frame,
-//
-//             data: self.data.clone(),
-//
-//             shared: self.shared.clone(),
-//         }
-//             .setup_vbo()
-//             .setup_vao()
-//             .setup_context()
-//             .setup_ibo()
-//
-
-// impl Clone for OpenGLContext{
-//     fn clone(&self) -> OpenGLContext {
-//         OpenGLContext {
-//             width: self.width,
-//             height: self.height,
-//             bytes: self.bytes,
-//             cores: self.cores,
-//
-//             frame: self.frame,
-//             framerate: self.framerate,
-//             speed: self.speed,
-//             max_frame: self.max_frame,
-//
-//             data: self.data.clone(),
-//
-//             notes: self.notes.clone(),
-//             particles: self.particles.clone(),
-//
-//             vbo: self.vbo,
-//             vao: self.vao,
-//             ibo: self.ibo,
-//
-//             program: self.program.clone(),
-//             u_time: self.u_time.clone(),
-//             u_resolution: self.u_resolution.clone(),
-//         }
-//             .setup_vbo()
-//             .setup_vao()
-//             .setup_context()
-//             .setup_ibo()
-//     }
-// }
-
-impl OpenGLContext {
-    pub fn new(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Self {
-        let bytes: usize = width * height * 4;
-        let data: Vec<u8> = vec![0; bytes];
-
-        let speed: f32 = cores as f32 / framerate;
-        let frame: usize = 0;
-        let (notes, max_frame) =
-            Notes::from_midi(width as f32 / height as f32, framerate, midi_file).unwrap();
-
-        let particles: Particles = Particles::new();
-
-        let program: Program = create_program().unwrap();
-        let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
-        let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
-
-        unsafe {
-            gl::Uniform1f(u_time.id, 0.0);
-            gl::Uniform2f(u_resolution.id, width as f32, height as f32);
-        }
-
-        let vbo: Vbo = Vbo::gen();
-        vbo.set(&notes.vert);
-        let vao: Vao = Vao::gen();
-        vao.set();
-        let ibo: Ibo = Ibo::gen();
-        ibo.set(&notes.ind);
-
-        unsafe {
-            gl::Viewport(0, 0, width as i32, height as i32);
-            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-        }
-
-        OpenGLContext {
-            width,
-            height,
-            bytes,
-            cores,
-
-            frame,
-            framerate,
-            speed,
-            max_frame,
-
-            data,
-
-            notes,
-            particles,
-
-            vbo,
-            vao,
-            ibo,
-
-            program,
-            u_time,
-            u_resolution,
-        }
-    }
-
-    pub fn to_zero(&mut self) {
-        let units: f32 = self.speed / self.cores as f32 * self.frame as f32;
-        self.frame = 0;
-        self.particles = Particles::new();
-        self.update(-units);
-    }
-}
-
-// pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
-//     let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
-//     for _u in 1..cores {
-//         ogls.push(ogls[ogls.len()-1].clone());
-//     }
-//
-//     let mut handles: Vec<std::thread::JoinHandle<OpenGLContext>> = vec![];
-//     for _u in 0..cores {
-//         let ogl = ogls.remove(0);
-//         handles.push(std::thread::spawn(move || {ogl}));
-//     }
-//     Ok(handles)
-// }
-
-impl OpenGLContext {
-    pub fn draw(&mut self) {
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-
-            self.draw_notes();
-            self.draw_particles();
-        }
-    }
-
-    pub fn draw_notes(&mut self) {
-        unsafe {
-            self.vbo.set(&self.notes.vert);
-            self.ibo.set(&self.notes.ind);
-            gl::DrawElements(
-                gl::TRIANGLES,
-                self.notes.ind.len() as i32,
-                gl::UNSIGNED_INT,
-                0 as *const _,
-            );
-        }
-    }
-
-    pub fn draw_particles(&mut self) {
-        unsafe {
-            self.vbo.set(&self.particles.vert);
-            self.ibo.set(&self.particles.ind);
-            gl::DrawElements(
-                gl::TRIANGLES,
-                self.particles.ind.len() as i32,
-                gl::UNSIGNED_INT,
-                0 as *const _,
-            );
-        }
-    }
-
-    pub fn update(&mut self, diff: f32) {
-        for y in self.notes.vert.iter_mut().skip(1).step_by(3) {
-            *y -= diff;
-        }
-
-        self.particles.update(diff, &self.notes.vert);
-    }
-}
 
 pub const LAYOUT: [[f32; 2]; 88] = [
     [-26. / 26., -25. / 26.],
@@ -664,6 +145,725 @@ pub const BLACK: [u8; 36] = [
     1, 4, 6, 9, 11, 13, 16, 18, 21, 23, 25, 28, 30, 33, 35, 37, 40, 42, 45, 47, 49, 52, 54, 57, 59,
     61, 64, 66, 69, 71, 73, 76, 78, 81, 83, 85,
 ];
+
+/// The full application.
+pub struct Pianorium {
+    /// The rendering parameters, which can be changed through the GUI.
+    pub p: Parameters,
+    /// What the user sees: a window, an OpenGL context, a GUI.
+    pub display: Display,
+    /// The background task which renders the final video.
+    pub renderer: Renderer,
+}
+
+impl Drop for Pianorium {
+    fn drop(&mut self) {
+        if self.p.clear_dir {
+            Self::teardown().unwrap();
+        }
+    }
+}
+
+impl Pianorium {
+    /// Creates a ready-to-use Pianorium app.
+    pub fn new() -> Result<Self, &'static str> {
+        let mut p: Parameters = Parameters::default();
+
+        let display: Display = {
+            let winsdl: Winsdl = Winsdl::new(800, 600, 3).unwrap();
+            // HANDLES FOR OPENGL
+            // let handles: Vec<JoinHandle<OpenGLContext>> = fill_handles(p.width, p.height, p.framerate, &p.midi_file).unwrap();
+            let (ogl, max_frame) = OpenGLContext::new(20, 20, 60.0, &p.midi_file);
+            p.max_frame = max_frame;
+            let gui: Gui = Gui::new(&winsdl.window).unwrap();
+
+            Display {
+                winsdl,
+                ogl,
+                gui
+            }
+        };
+
+        let renderer: Renderer = {
+            // HANDLES FOR OPENGL
+            // let handles: Vec<JoinHandle<OpenGLContext>> = fill_handles(p.width, p.height, p.framerate, &p.midi_file).unwrap();
+            let (ogl, _) = OpenGLContext::new(800, 600, 60.0, &p.midi_file);
+            let encoder: Encoder = Encoder {};
+
+            Renderer {
+                ogl,
+                encoder
+            }
+        };
+
+        Self::setup().unwrap();
+
+        Ok(Pianorium {
+            p,
+            display,
+            renderer,
+        })
+    }
+    /// Records the whole song in the background.
+    pub fn full_mp4(&mut self) -> Result<(), String> {
+        self.renderer.ogl.to_zero(self.p.speed / self.p.cores as f32 * self.renderer.ogl.frame as f32);
+        self.display.winsdl
+            .window
+            .subsystem()
+            .gl_set_swap_interval(SwapInterval::Immediate)
+            .unwrap();
+
+        let mut index = File::create(self.p.index_file.clone()).unwrap();
+        println!("Rendering frames…");
+
+        self.renderer.ogl.vbo.set(&self.renderer.ogl.notes.vert);
+        self.renderer.ogl.vao.set();
+        self.renderer.ogl.ibo.set(&self.renderer.ogl.notes.ind);
+        self.renderer.ogl.program.set_used();
+
+        let tex = Texture::gen();
+        tex.set(self.p.width as i32, self.p.height as i32);
+        let fbo = Fbo::gen();
+        fbo.set(tex.id);
+
+        let pbo = Pbo::gen();
+        pbo.set(self.p.bytes);
+
+        unsafe {
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        }
+
+        unsafe {
+            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+        }
+
+        'record: loop {
+            for event in self.display.winsdl.event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } => break 'record,
+                    _ => {} // egui_state.process_input(&window, event, &mut painter);
+                }
+            }
+
+            // for _u in 0..self.p.cores {
+            // let mut ogl = self.handles.remove(0).join().unwrap();
+            if self.renderer.ogl.frame > self.p.max_frame {
+                break 'record;
+            } // Stop when it's finished playing
+            unsafe {
+                gl::Uniform1f(self.renderer.ogl.u_time.id, self.renderer.ogl.frame as f32 / self.p.framerate);
+            }
+
+            self.renderer.ogl.update(1.0 / self.p.framerate);
+            self.renderer.ogl.draw();
+
+            let time = Instant::now();
+            self.read();
+            println!("Read: {:?}", time.elapsed());
+
+            let time = Instant::now();
+            let ptr: *mut c_void = pbo.map();
+            println!("Map: {:?}", time.elapsed());
+
+            let time = Instant::now();
+            self.export_mp4(unsafe { from_raw_parts(ptr as *const u8, self.p.bytes) });
+            println!("Export: {:?}", time.elapsed());
+
+            pbo.unmap();
+
+            self.renderer.ogl.frame += 1;
+            let name: String = format!("temp/{:010}.mp4", self.renderer.ogl.frame);
+            let filename: &str = name.as_str();
+            writeln!(index, "file {}", filename).unwrap();
+
+            // self.handles.push(spawn(move ||{
+            //     ogl.export_mp4();
+            //     ogl
+            // }));
+
+            // }
+        }
+        Self::concat_mp4(&self.p.mp4_file.clone()); // ≃1/4 of runtime
+
+        Ok(())
+    }
+
+    /// Saves an image of the full song.
+    pub fn full_png(&mut self) -> Result<(), String> {
+        // let ogl = self.handles.remove(0).join().unwrap();
+
+        self.renderer.ogl.to_zero(self.p.speed / self.p.cores as f32 * self.renderer.ogl.frame as f32);
+        for y in self.renderer.ogl.notes.vert.iter_mut().skip(1).step_by(3) {
+            *y = (*y / (self.p.max_frame as f32 / self.p.framerate) - 0.5) * 2.;
+        }
+
+        unsafe {
+            gl::Uniform1f(self.renderer.ogl.u_time.id, 0.0);
+        }
+        // unsafe { gl::Viewport(0, 0, (self.renderer.ogl.width/4) as i32, (self.renderer.ogl.height*3) as i32); } // with framebuffer change as well
+        self.renderer.ogl.draw();
+        self.read();
+        let png_file = self.p.png_file.clone();
+        // spawn(move ||{
+        self.export_png(&png_file);
+        println!("✨ Generated an image of the full song! ✨");
+        // self.renderer.ogl.frame += self.renderer.ogl.cores;
+        // });
+        // self.renderer.ogl = OpenGLContext::new(self.p.width, self.p.height, self.p.framerate, self.p.cores, &self.p.midi_file);
+
+        // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
+
+        Ok(())
+    }
+
+    /// Plays the song with realtime changes from the GUI.
+    pub fn play(&mut self) -> Result<(), String> {
+        self.display.ogl.to_zero(self.p.speed / self.p.cores as f32 * self.display.ogl.frame as f32);
+        self.display.winsdl
+            .window
+            .subsystem()
+            .gl_set_swap_interval(SwapInterval::VSync)
+            .unwrap();
+
+        // let ogl = self.handles.remove(0).join().unwrap();
+        // self.ogl.to_zero();
+        let mut rgb: [f32; 3] = [0.1, 0.1, 0.1];
+
+        println!("✨ Playing the visualization ✨");
+        let start_time = Instant::now();
+        let mut since_last: f32;
+        let mut since_start: f32 = 0.0;
+        'play: loop {
+            since_last = start_time.elapsed().as_secs_f32() - since_start;
+            since_start += since_last;
+
+            if self.display.ogl.frame > self.p.max_frame {
+                break 'play;
+            } // Stop when it's finished playing
+
+            self.display.gui.egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
+            self.display.gui
+                .egui_ctx
+                .begin_frame(self.display.gui.egui_state.input.take());
+
+            self.display.ogl.vbo.set(&self.display.ogl.notes.vert);
+            self.display.ogl.vao.set();
+            self.display.ogl.ibo.set(&self.display.ogl.notes.ind);
+            self.display.ogl.program.set_used();
+            unsafe {
+                gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
+                gl::Uniform1f(self.display.ogl.u_time.id, since_start as f32);
+            }
+            self.display.ogl.update(since_last);
+            self.display.ogl.draw();
+            self.display.ogl.frame += 1;
+
+            self.draw_gui();
+            rgb = self.p.bg.to_rgb();
+
+            let (egui_output, paint_cmds) = self.display.gui.egui_ctx.end_frame();
+            self.display.gui
+                .egui_state
+                .process_output(&self.display.winsdl.window, &egui_output);
+            let paint_jobs = self.display.gui.egui_ctx.tessellate(paint_cmds);
+            self.display.gui
+                .painter
+                .paint_jobs(None, paint_jobs, &self.display.gui.egui_ctx.font_image());
+
+            self.display.winsdl.window.gl_swap_window();
+
+            // if !egui_output.needs_repaint {
+            //     if let Some(event) = self.display.winsdl.event_pump.wait_event_timeout(5) {
+            //         match event {
+            //             Event::Quit { .. } => break 'play,
+            //             _ => {
+            //                 // Process input event
+            //                 self.display.gui.egui_state.process_input(&self.display.winsdl.window, event, &mut self.display.gui.painter);
+            //             }
+            //         }
+            //     }
+            // } else {
+            for event in self.display.winsdl.event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } => break 'play,
+                    _ => {
+                        // Process input event
+                        self.display.gui.egui_state.process_input(
+                            &self.display.winsdl.window,
+                            event,
+                            &mut self.display.gui.painter,
+                        );
+                    }
+                }
+            }
+            // }
+        }
+        // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
+
+        Ok(())
+    }
+
+    /// Draws the GUI.
+    fn draw_gui(&mut self) {
+        egui::Window::new("Pianorium").show(&self.display.gui.egui_ctx, |ui| {
+            ui.horizontal(|ui| {
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.bg,
+                    self.p.alpha,
+                );
+                ui.label("Background color");
+            });
+            ui.horizontal(|ui| {
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.notes,
+                    self.p.alpha,
+                );
+                ui.label("Notes color");
+            });
+            ui.horizontal(|ui| {
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.particles,
+                    self.p.alpha,
+                );
+                ui.label("Particles color");
+            });
+        });
+    }
+
+    fn setup() -> std::io::Result<()> {
+        let _ = remove_dir_all("temp");
+        create_dir("temp")?;
+        Ok(())
+    }
+    
+    fn teardown() -> std::io::Result<()> {
+        remove_dir_all("temp")?;
+        let _ = remove_file("index.txt");
+        let _ = remove_file("ff_concat_mp4.log");
+        let _ = remove_file("ff_export_mp4.log");
+        let _ = remove_file("ff_export_png.log");
+        Ok(())
+    }
+
+    pub fn read(&mut self) {
+        unsafe {
+            gl::ReadPixels(
+                0,
+                0,
+                self.p.width as i32,
+                self.p.height as i32,
+                gl::BGRA,
+                gl::UNSIGNED_BYTE,
+                null::<u8>() as *mut gl::types::GLvoid,
+            );
+        }
+    }
+
+    pub fn export_mp4(&self, ptr: &[u8]) {
+        let name = format!("temp/{:010}.mp4", self.renderer.ogl.frame);
+        let filename = name.as_str();
+
+        let mut ffmpeg = Command::new("ffmpeg")
+            .env("FFREPORT", "file=ff_export_mp4.log:level=56")
+            .arg("-loglevel")
+            .arg("0")
+            .arg("-f")
+            .arg("rawvideo")
+            .arg("-r")
+            .arg(self.p.framerate.to_string())
+            .arg("-pix_fmt")
+            .arg("bgra")
+            .arg("-s")
+            .arg(format!("{}x{}", self.p.width, self.p.height))
+            .arg("-i")
+            .arg("-")
+            .arg("-vcodec")
+            .arg("libx264")
+            .arg("-crf")
+            .arg("23")
+            .arg("-vf")
+            .arg("vflip")
+            .arg(filename)
+            .stdin(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        if let Some(ref mut stdin) = ffmpeg.stdin {
+            stdin.write_all(ptr).unwrap();
+        }
+    }
+
+    pub fn export_png(&self, filename: &str) {
+        let mut ffmpeg = Command::new("ffmpeg")
+            .env("FFREPORT", "file=ff_export_png.log:level=56")
+            .arg("-loglevel")
+            .arg("0")
+            .arg("-f")
+            .arg("rawvideo")
+            .arg("-pix_fmt")
+            .arg("bgra")
+            .arg("-s")
+            .arg(format!("{}x{}", self.p.width, self.p.height))
+            .arg("-i")
+            .arg("-")
+            .arg("-frames:v")
+            .arg("1")
+            .arg("-vf")
+            .arg("vflip")
+            .arg("-y")
+            .arg(filename)
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("Failed to start ffmpeg process.");
+
+        if let Some(ref mut stdin) = ffmpeg.stdin {
+            stdin.write_all(&self.renderer.ogl.data).unwrap();
+        }
+    }
+
+    pub fn concat_mp4(output: &str) {
+        println!("Concatenating into one video…");
+
+        Command::new("ffmpeg")
+            .env("FFREPORT", "file=ff_concat_mp4.log:level=56")
+            .arg("-loglevel")
+            .arg("0")
+            .arg("-f")
+            .arg("concat")
+            .arg("-i")
+            .arg("index.txt")
+            .arg("-c")
+            .arg("copy")
+            .arg("-movflags")
+            .arg("faststart")
+            .arg("-y")
+            .arg(output)
+            .output()
+            .unwrap();
+
+        println!("✨ Fresh video generated! ✨");
+    }
+}
+
+// pub duration: f64,
+// pub tempo: f32,
+// pub border_radius: u8,
+// pub bgimg_file: &'static str,
+// pub vertical_img_divide: u8,
+pub struct Parameters {
+    pub width: usize,
+    pub height: usize,
+    pub bytes: usize,
+    pub cores: usize,
+    pub samples: u8,
+    pub framerate: f32,
+    pub max_frame: usize,
+    pub speed: f32,
+    // Relative path from where the executable is called
+    pub midi_file: String,
+    // Relative path from where the executable is called
+    pub index_file: String,
+    pub mp4_file: String,
+    pub png_file: String,
+    pub clear_dir: bool,
+    pub bg: Hsva,
+    pub alpha: Alpha,
+    pub notes: Hsva,
+    pub particles: Hsva,
+}
+
+impl Default for Parameters {
+    fn default() -> Self {
+        let width: usize = 1920;
+        let height: usize = 1080;
+        let bytes: usize = width*height*4;
+        let cores: usize = num_cpus::get();
+        let samples: u8 = 11;
+        let framerate: f32 = 60.0;
+        let max_frame: usize = 0;
+        let speed: f32 = cores as f32 / framerate;
+        let midi_file = "test.mid".to_owned();
+        let mp4_file = "output.mp4".to_owned();
+        let png_file = "output.png".to_owned();
+        let clear_dir: bool = true;
+        let index_file = "index.txt".to_owned();
+        let bg: Hsva = Hsva {
+            h: 0.0,
+            s: 0.0,
+            v: 0.1,
+            a: 1.0,
+        };
+        let alpha: Alpha = Alpha::Opaque;
+        let notes: Hsva = Hsva {
+            h: 0.5,
+            s: 0.1,
+            v: 0.1,
+            a: 1.0,
+        };
+        let particles: Hsva = Hsva {
+            h: 0.75,
+            s: 0.5,
+            v: 0.5,
+            a: 1.0,
+        };
+        Parameters {
+            width,
+            height,
+            bytes,
+            cores,
+            samples,
+            framerate,
+            max_frame,
+            speed,
+            midi_file,
+            mp4_file,
+            png_file,
+            clear_dir,
+            index_file,
+            bg,
+            alpha,
+            notes,
+            particles,
+        }
+    }
+}
+
+pub struct Display {
+    /// Resizeable window
+    pub winsdl: Winsdl,
+    /// The OpenGL context for realtime changes
+    pub ogl: OpenGLContext,
+    /// GUI-drawing components
+    pub gui: Gui,
+}
+
+pub struct Renderer {
+    /// The OpenGL context of the rendering
+    pub ogl: OpenGLContext,
+    /// The FFmpeg encoder, converts framebuffer data to video frames
+    pub encoder: Encoder,
+}
+
+pub struct Encoder {}
+
+// fn draw_gui() { // Struct with Impl
+//
+//     egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
+//     egui_ctx.begin_frame(egui_state.input.take());
+//     egui::CentralPanel::default().show(&egui_ctx, |ui| {
+//         ui.label(" ");
+//         ui.add(egui::Slider::new(&mut slider, 0.0..=50.0).text("Slider"));
+//         ui.label(" ");
+//     });
+//     let (egui_output, paint_cmds) = egui_ctx.end_frame();
+//     egui_state.process_output(&window, &egui_output);
+//     let paint_jobs = egui_ctx.tessellate(paint_cmds);
+//     painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
+// }
+
+
+// use std::sync::{Arc, Mutex};
+
+pub struct OpenGLContext {
+    pub frame: usize,
+
+    pub data: Vec<u8>,
+
+    pub notes: Notes,
+    pub particles: Particles,
+
+    pub vbo: Vbo,
+    pub vao: Vao,
+    pub ibo: Ibo,
+
+    pub program: Program,
+    pub u_time: Uniform,
+    pub u_resolution: Uniform,
+}
+
+// pub struct Shared { // Read-only
+//
+// }
+//
+// impl std::fmt::Debug for OpenGLContext {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+//         write!(f, "ogl{}", self.shared.frame)
+//     }
+// }
+//
+// impl Clone for OpenGLContext{
+//     fn clone(&self) -> OpenGLContext {
+//
+//         OpenGLContext {
+//             width: self.width,
+//             height: self.height,
+//             bytes: self.bytes,
+//             cores: self.cores,
+//             framerate: self.framerate,
+//             speed: self.speed,
+//             max_frame: self.max_frame,
+//
+//             data: self.data.clone(),
+//
+//             shared: self.shared.clone(),
+//         }
+//             .setup_vbo()
+//             .setup_vao()
+//             .setup_context()
+//             .setup_ibo()
+//
+
+// impl Clone for OpenGLContext{
+//     fn clone(&self) -> OpenGLContext {
+//         OpenGLContext {
+//             width: self.width,
+//             height: self.height,
+//             bytes: self.bytes,
+//             cores: self.cores,
+//
+//             frame: self.frame,
+//             framerate: self.framerate,
+//             speed: self.speed,
+//             max_frame: self.max_frame,
+//
+//             data: self.data.clone(),
+//
+//             notes: self.notes.clone(),
+//             particles: self.particles.clone(),
+//
+//             vbo: self.vbo,
+//             vao: self.vao,
+//             ibo: self.ibo,
+//
+//             program: self.program.clone(),
+//             u_time: self.u_time.clone(),
+//             u_resolution: self.u_resolution.clone(),
+//         }
+//             .setup_vbo()
+//             .setup_vao()
+//             .setup_context()
+//             .setup_ibo()
+//     }
+// }
+
+impl OpenGLContext {
+    /// Returns a ready-to-use context and the final frame number
+    pub fn new(width: usize, height: usize, framerate: f32, midi_file: &str) -> (Self, usize) {
+        let bytes: usize = width * height * 4;
+        let data: Vec<u8> = vec![0; bytes];
+        
+        let frame: usize = 0;
+        let (notes, max_frame) =
+            Notes::from_midi(width as f32 / height as f32, framerate, midi_file).unwrap();
+
+        let particles: Particles = Particles::new();
+
+        let program: Program = create_program().unwrap();
+        let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
+        let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
+
+        unsafe {
+            gl::Uniform1f(u_time.id, 0.0);
+            gl::Uniform2f(u_resolution.id, width as f32, height as f32);
+        }
+
+        let vbo: Vbo = Vbo::gen();
+        vbo.set(&notes.vert);
+        let vao: Vao = Vao::gen();
+        vao.set();
+        let ibo: Ibo = Ibo::gen();
+        ibo.set(&notes.ind);
+
+        unsafe {
+            gl::Viewport(0, 0, width as i32, height as i32);
+            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        }
+
+        (OpenGLContext {
+            frame,
+
+            data,
+
+            notes,
+            particles,
+
+            vbo,
+            vao,
+            ibo,
+
+            program,
+            u_time,
+            u_resolution,
+        }, max_frame)
+    }
+
+    pub fn to_zero(&mut self, units: f32) {
+        self.frame = 0;
+        self.particles = Particles::new();
+        self.update(-units);
+    }
+
+// pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
+//     let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
+//     for _u in 1..cores {
+//         ogls.push(ogls[ogls.len()-1].clone());
+//     }
+//
+//     let mut handles: Vec<std::thread::JoinHandle<OpenGLContext>> = vec![];
+//     for _u in 0..cores {
+//         let ogl = ogls.remove(0);
+//         handles.push(std::thread::spawn(move || {ogl}));
+//     }
+//     Ok(handles)
+// }
+
+    pub fn draw(&mut self) {
+        unsafe {
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            self.draw_notes();
+            self.draw_particles();
+        }
+    }
+
+    pub fn draw_notes(&mut self) {
+        unsafe {
+            self.vbo.set(&self.notes.vert);
+            self.ibo.set(&self.notes.ind);
+            gl::DrawElements(
+                gl::TRIANGLES,
+                self.notes.ind.len() as i32,
+                gl::UNSIGNED_INT,
+                0 as *const _,
+            );
+        }
+    }
+
+    pub fn draw_particles(&mut self) {
+        unsafe {
+            self.vbo.set(&self.particles.vert);
+            self.ibo.set(&self.particles.ind);
+            gl::DrawElements(
+                gl::TRIANGLES,
+                self.particles.ind.len() as i32,
+                gl::UNSIGNED_INT,
+                0 as *const _,
+            );
+        }
+    }
+
+    pub fn update(&mut self, diff: f32) {
+        for y in self.notes.vert.iter_mut().skip(1).step_by(3) {
+            *y -= diff;
+        }
+
+        self.particles.update(diff, &self.notes.vert);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Note {
@@ -1486,169 +1686,10 @@ impl Uniform {
     }
 }
 
-impl OpenGLContext {
-    pub fn read(&mut self) {
-        unsafe {
-            gl::ReadPixels(
-                0,
-                0,
-                self.width as i32,
-                self.height as i32,
-                gl::BGRA,
-                gl::UNSIGNED_BYTE,
-                null::<u8>() as *mut gl::types::GLvoid,
-            );
-        }
-    }
-
-    pub fn export_mp4(&self, ptr: &[u8]) {
-        let name = format!("temp/{:010}.mp4", self.frame);
-        let filename = name.as_str();
-
-        let mut ffmpeg = Command::new("ffmpeg")
-            .env("FFREPORT", "file=ff_export_mp4.log:level=56")
-            .arg("-loglevel")
-            .arg("0")
-            .arg("-f")
-            .arg("rawvideo")
-            .arg("-r")
-            .arg(self.framerate.to_string())
-            .arg("-pix_fmt")
-            .arg("bgra")
-            .arg("-s")
-            .arg(format!("{}x{}", self.width, self.height))
-            .arg("-i")
-            .arg("-")
-            .arg("-vcodec")
-            .arg("libx264")
-            .arg("-crf")
-            .arg("23")
-            .arg("-vf")
-            .arg("vflip")
-            .arg(filename)
-            .stdin(Stdio::piped())
-            .spawn()
-            .unwrap();
-
-        if let Some(ref mut stdin) = ffmpeg.stdin {
-            stdin.write_all(ptr).unwrap();
-        }
-    }
-
-    pub fn export_png(&self, filename: &str) {
-        let mut ffmpeg = Command::new("ffmpeg")
-            .env("FFREPORT", "file=ff_export_png.log:level=56")
-            .arg("-loglevel")
-            .arg("0")
-            .arg("-f")
-            .arg("rawvideo")
-            .arg("-pix_fmt")
-            .arg("bgra")
-            .arg("-s")
-            .arg(format!("{}x{}", self.width, self.height))
-            .arg("-i")
-            .arg("-")
-            .arg("-frames:v")
-            .arg("1")
-            .arg("-vf")
-            .arg("vflip")
-            .arg("-y")
-            .arg(filename)
-            .stdin(Stdio::piped())
-            .spawn()
-            .expect("Failed to start ffmpeg process.");
-
-        if let Some(ref mut stdin) = ffmpeg.stdin {
-            stdin.write_all(&self.data).unwrap();
-        }
-    }
-}
-
-pub fn concat_mp4(output: &str) {
-    println!("Concatenating into one video…");
-
-    Command::new("ffmpeg")
-        .env("FFREPORT", "file=ff_concat_mp4.log:level=56")
-        .arg("-loglevel")
-        .arg("0")
-        .arg("-f")
-        .arg("concat")
-        .arg("-i")
-        .arg("index.txt")
-        .arg("-c")
-        .arg("copy")
-        .arg("-movflags")
-        .arg("faststart")
-        .arg("-y")
-        .arg(output)
-        .output()
-        .unwrap();
-
-    println!("✨ Fresh video generated! ✨");
-}
-
-// pub duration: f64,
-// pub tempo: f32,
-// pub border_radius: u8,
-// pub bgimg_file: &'static str,
-pub struct Parameters {
-    pub width: usize,
-    pub height: usize,
-    pub samples: u8,
-    pub framerate: f32,
-    pub cores: usize,
-    // Relative path from where the executable is called
-    pub midi_file: String,
-    // Relative path from where the executable is called
-    pub index_file: String,
-    pub mp4_file: String,
-    pub png_file: String,
-    pub clear_dir: bool,
-}
-
-impl Parameters {
-    pub fn build(args: &[String]) -> Result<Parameters, &'static str> {
-        if args.len() != 8 {
-            return Err("The number of arguments is incorrect");
-        }
-        let mut args: std::slice::Iter<'_, String> = args.iter();
-        let width_str = args.next().expect("A parameter is empty");
-        let width = width_str.parse::<usize>().unwrap();
-        let height_str = args.next().expect("A parameter is empty");
-        let height = height_str.parse::<usize>().unwrap();
-        let framerate_str = args.next().expect("A parameter is empty");
-        let framerate = framerate_str.parse::<f32>().unwrap();
-        let samples_str = args.next().expect("A parameter is empty");
-        let samples = samples_str.parse::<u8>().unwrap();
-        let midi_file = args.next().expect("A parameter is empty").to_string();
-        let mp4_file = args.next().expect("A parameter is empty").to_string();
-        let png_file = args.next().expect("A parameter is empty").to_string();
-        let clear_dir_str = args.next().expect("A parameter is empty");
-        let clear_dir = clear_dir_str.parse::<bool>().unwrap();
-
-        let cores: usize = num_cpus::get();
-        let index_file = "index.txt".to_owned();
-
-        Ok(Parameters {
-            width,
-            height,
-            samples,
-            framerate,
-            cores,
-            midi_file,
-            index_file,
-            mp4_file,
-            png_file,
-            clear_dir,
-        })
-    }
-}
-
 pub struct Gui {
     pub painter: Painter,
     pub egui_state: EguiStateHandler,
     pub egui_ctx: CtxRef,
-    pub values: Values,
 }
 
 impl Gui {
@@ -1661,41 +1702,7 @@ impl Gui {
             painter,
             egui_state,
             egui_ctx,
-            values: Default::default(),
         })
-    }
-}
-
-pub struct Values {
-    pub bg: Hsva,
-    pub alpha: Alpha,
-    pub notes: Hsva,
-    pub particles: Hsva,
-}
-
-impl Default for Values {
-    fn default() -> Self {
-        Values {
-            bg: Hsva {
-                h: 0.0,
-                s: 0.0,
-                v: 0.1,
-                a: 1.0,
-            },
-            alpha: Alpha::Opaque,
-            notes: Hsva {
-                h: 0.5,
-                s: 0.1,
-                v: 0.1,
-                a: 1.0,
-            },
-            particles: Hsva {
-                h: 0.75,
-                s: 0.5,
-                v: 0.5,
-                a: 1.0,
-            },
-        }
     }
 }
 
@@ -1835,6 +1842,7 @@ impl Winsdl {
 
         let window = video_subsystem
             .window("Pianorium", width as u32, height as u32)
+            .resizable()
             .opengl()
             .build()
             .unwrap();
