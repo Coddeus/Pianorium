@@ -2,9 +2,9 @@ name: Pianorium
 
 on:
   push:
-    branches: [  ]
+    branches: [ "dev" ]
   pull_request:
-    branches: [  ]
+    branches: [ "dev" ]
 
 env:
   CARGO_TERM_COLOR: always
