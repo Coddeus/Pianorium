@@ -48,6 +48,7 @@ With:
 Found a bug, have a feature idea? Issues are welcome to help the development of this project!
 
 To build the codebase, you will need: 
+- [Rust installed](https://www.rust-lang.org/tools/install)
 - [[guide]](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building) FFmpeg manually installed to be statically linked with the ffmpeg-next crate
 - [[guide]](https://github.com/Rust-SDL2/rust-sdl2) SDL2 manually installed to be statically linked with the sdl2 crate
 
