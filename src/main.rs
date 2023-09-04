@@ -4,6 +4,11 @@ extern crate midly;
 extern crate num_cpus;
 extern crate rand;
 
+mod parameters;
+use parameters::Parameters;
+mod layout;
+use layout::{BLACK, LAYOUT};
+
 fn main() {
     // ffmpeg::init().unwrap();
 
@@ -14,7 +19,7 @@ fn main() {
 }
 
 use egui_sdl2_gl::{
-    egui::{self, color::Hsva, color_picker::Alpha, epaint, style, Color32, CtxRef},
+    egui::{self, epaint, style, Color32, CtxRef},
     gl::{self, types::*},
     painter::Painter,
     sdl2::{
@@ -49,102 +54,6 @@ use midly::{
 
 use rand::{thread_rng, Rng};
 
-pub const LAYOUT: [[f32; 2]; 88] = [
-    [-26. / 26., -25. / 26.],
-    [-25.15 / 26., -24.55 / 26.],
-    [-25. / 26., -24. / 26.],
-    [-24. / 26., -23. / 26.],
-    [-23.4 / 26., -22.8 / 26.],
-    [-23. / 26., -22. / 26.],
-    [-22.2 / 26., -21.6 / 26.],
-    [-22. / 26., -21. / 26.],
-    [-21. / 26., -20. / 26.],
-    [-20.45 / 26., -19.85 / 26.],
-    [-20. / 26., -19. / 26.],
-    [-19.3 / 26., -18.7 / 26.],
-    [-19. / 26., -18. / 26.],
-    [-18.15 / 26., -17.55 / 26.],
-    [-18. / 26., -17. / 26.],
-    [-17. / 26., -16. / 26.],
-    [-16.4 / 26., -15.8 / 26.],
-    [-16. / 26., -15. / 26.],
-    [-15.2 / 26., -14.6 / 26.],
-    [-15. / 26., -14. / 26.],
-    [-14. / 26., -13. / 26.],
-    [-13.45 / 26., -12.85 / 26.],
-    [-13. / 26., -12. / 26.],
-    [-12.3 / 26., -11.7 / 26.],
-    [-12. / 26., -11. / 26.],
-    [-11.15 / 26., -10.55 / 26.],
-    [-11. / 26., -10. / 26.],
-    [-10. / 26., -9. / 26.],
-    [-9.4 / 26., -8.8 / 26.],
-    [-9. / 26., -8. / 26.],
-    [-8.2 / 26., -7.6 / 26.],
-    [-8. / 26., -7. / 26.],
-    [-7. / 26., -6. / 26.],
-    [-6.45 / 26., -5.85 / 26.],
-    [-6. / 26., -5. / 26.],
-    [-5.3 / 26., -4.7 / 26.],
-    [-5. / 26., -4. / 26.],
-    [-4.15 / 26., -3.55 / 26.],
-    [-4. / 26., -3. / 26.],
-    [-3. / 26., -2. / 26.],
-    [-2.4 / 26., -1.8 / 26.],
-    [-2. / 26., -1. / 26.],
-    [-1.2 / 26., -0.6 / 26.],
-    [-1. / 26., 0. / 26.],
-    [0. / 26., 1. / 26.],
-    [0.55 / 26., 1.15 / 26.],
-    [1. / 26., 2. / 26.],
-    [1.7 / 26., 2.3 / 26.],
-    [2. / 26., 3. / 26.],
-    [2.85 / 26., 3.45 / 26.],
-    [3. / 26., 4. / 26.],
-    [4. / 26., 5. / 26.],
-    [4.6 / 26., 5.2 / 26.],
-    [5. / 26., 6. / 26.],
-    [5.8 / 26., 6.4 / 26.],
-    [6. / 26., 7. / 26.],
-    [7. / 26., 8. / 26.],
-    [7.55 / 26., 8.15 / 26.],
-    [8. / 26., 9. / 26.],
-    [8.7 / 26., 9.3 / 26.],
-    [9. / 26., 10. / 26.],
-    [9.85 / 26., 10.45 / 26.],
-    [10. / 26., 11. / 26.],
-    [11. / 26., 12. / 26.],
-    [11.6 / 26., 12.2 / 26.],
-    [12. / 26., 13. / 26.],
-    [12.8 / 26., 13.4 / 26.],
-    [13. / 26., 14. / 26.],
-    [14. / 26., 15. / 26.],
-    [14.55 / 26., 15.15 / 26.],
-    [15. / 26., 16. / 26.],
-    [15.7 / 26., 16.3 / 26.],
-    [16. / 26., 17. / 26.],
-    [16.85 / 26., 17.45 / 26.],
-    [17. / 26., 18. / 26.],
-    [18. / 26., 19. / 26.],
-    [18.6 / 26., 19.2 / 26.],
-    [19. / 26., 20. / 26.],
-    [19.8 / 26., 20.4 / 26.],
-    [20. / 26., 21. / 26.],
-    [21. / 26., 22. / 26.],
-    [21.55 / 26., 22.15 / 26.],
-    [22. / 26., 23. / 26.],
-    [22.7 / 26., 23.3 / 26.],
-    [23. / 26., 24. / 26.],
-    [23.85 / 26., 24.45 / 26.],
-    [24. / 26., 25. / 26.],
-    [25. / 26., 26. / 26.],
-]; // Look for LAYOUT[midinote-21]
-
-pub const BLACK: [u8; 36] = [
-    1, 4, 6, 9, 11, 13, 16, 18, 21, 23, 25, 28, 30, 33, 35, 37, 40, 42, 45, 47, 49, 52, 54, 57, 59,
-    61, 64, 66, 69, 71, 73, 76, 78, 81, 83, 85,
-];
-
 /// The full application.
 pub struct Pianorium {
     /// The rendering parameters, which can be changed through the GUI.
@@ -169,12 +78,12 @@ impl Drop for Pianorium {
 impl Pianorium {
     /// Creates a ready-to-use Pianorium app.
     pub fn new() -> Result<Self, &'static str> {
+        let winsdl: Winsdl = Winsdl::new(800, 600, 3).unwrap();
         let mut p: Parameters = Parameters::default();
 
-        let winsdl: Winsdl = Winsdl::new(800, 600, 3).unwrap();
 
-        let (ogl, max_frame) = OpenGLContext::new(900, 600, 60.0, &p.midi_file);
-        p.max_frame = max_frame;
+        let (ogl, max_frame) = OpenGLContext::new(p.width, p.height, 60.0, p.gravity, &p.midi_file);
+        p.max_time = max_frame as f32/60.0;
 
         let gui: Gui = Gui::new(&winsdl.window).unwrap();
         // HANDLES FOR OPENGL
@@ -211,11 +120,10 @@ impl Pianorium {
         let mut since_last: f32;
         let mut since_start: f32 = 0.0;
         'play: loop {
-            let time = Instant::now();
             since_last = start_time.elapsed().as_secs_f32() - since_start;
             since_start += since_last;
 
-            if self.ogl.frame > self.p.max_frame {
+            if self.p.time > self.p.max_time {
                 break 'play;
             } // Stop when it's finished playing
 
@@ -227,12 +135,23 @@ impl Pianorium {
             self.ogl.vbo.set(&self.ogl.notes.vert);
             self.ogl.vao.set();
             self.ogl.ibo.set(&self.ogl.notes.ind);
-            self.ogl.program.set_used();
+            self.p.program.set_used();
             unsafe {
                 gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
-                gl::Uniform1f(self.ogl.u_time.id, since_start as f32);
+                gl::Uniform1f(self.p.u_time.id, self.ogl.frame as f32 / self.p.framerate);
+                gl::Uniform3f(self.p.u_note_left.id, self.p.note_left.to_rgb()[0], self.p.note_left.to_rgb()[1], self.p.note_left.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_note_right.id, self.p.note_right.to_rgb()[0], self.p.note_right.to_rgb()[1], self.p.note_right.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_note_top.id, self.p.note_top.to_rgb()[0], self.p.note_top.to_rgb()[1], self.p.note_top.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_note_bottom.id, self.p.note_bottom.to_rgb()[0], self.p.note_bottom.to_rgb()[1], self.p.note_bottom.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_note_time.id, self.p.note_time.to_rgb()[0], self.p.note_time.to_rgb()[1], self.p.note_time.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_left.id, self.p.particle_left.to_rgb()[0], self.p.particle_left.to_rgb()[1], self.p.particle_left.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_right.id, self.p.particle_right.to_rgb()[0], self.p.particle_right.to_rgb()[1], self.p.particle_right.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_top.id, self.p.particle_top.to_rgb()[0], self.p.particle_top.to_rgb()[1], self.p.particle_top.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_bottom.id, self.p.particle_bottom.to_rgb()[0], self.p.particle_bottom.to_rgb()[1], self.p.particle_bottom.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_time.id, self.p.particle_time.to_rgb()[0], self.p.particle_time.to_rgb()[1], self.p.particle_time.to_rgb()[2]);
             }
-            self.ogl.update(since_last);
+            self.p.time+=since_last*self.p.preview_speed;
+            self.ogl.update(since_last*self.p.gravity*self.p.preview_speed);
             self.ogl.draw();
             self.ogl.frame += 1;
 
@@ -248,7 +167,6 @@ impl Pianorium {
                 .painter
                 .paint_jobs(None, paint_jobs, &self.gui.egui_ctx.font_image());
 
-            println!("DrawPlay: {:?}", time.elapsed());
             self.winsdl.window.gl_swap_window();
 
             // if !egui_output.needs_repaint {
@@ -277,19 +195,17 @@ impl Pianorium {
                 }
             }
 
-            println!("DrawPlayWithEvent: {:?}", time.elapsed());
             // }
         }
         // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
 
-        self.gui.egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
         self.gui
             .egui_ctx
             .begin_frame(self.gui.egui_state.input.take());
         self.ogl.vbo.set(&self.ogl.notes.vert);
         self.ogl.vao.set();
         self.ogl.ibo.set(&self.ogl.notes.ind);
-        self.ogl.program.set_used();
+        self.p.program.set_used();
 
         self.draw_last();
         unsafe {
@@ -328,7 +244,7 @@ impl Pianorium {
         self.ogl.vbo.set(&self.ogl.notes.vert);
         self.ogl.vao.set();
         self.ogl.ibo.set(&self.ogl.notes.ind);
-        self.ogl.program.set_used();
+        self.p.program.set_used();
 
         let tex = Texture::gen();
         tex.set(self.p.width as i32, self.p.height as i32);
@@ -357,12 +273,22 @@ impl Pianorium {
 
             // for _u in 0..self.p.cores {
             // let mut ogl = self.handles.remove(0).join().unwrap();
-            if self.ogl.frame > self.p.max_frame {
+            if self.p.time > self.p.max_time {
                 break 'record;
             } // Stop when it's finished playing
             unsafe {
-                gl::Uniform1f(self.ogl.u_time.id, self.ogl.frame as f32 / self.p.framerate);
-            }
+                gl::Uniform1f(self.p.u_time.id, self.ogl.frame as f32 / self.p.framerate);
+                gl::Uniform3f(self.p.u_note_left.id, self.p.note_left.to_rgb()[0], self.p.note_left.to_rgb()[1], self.p.note_left.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_note_right.id, self.p.note_right.to_rgb()[0], self.p.note_right.to_rgb()[1], self.p.note_right.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_note_top.id, self.p.note_top.to_rgb()[0], self.p.note_top.to_rgb()[1], self.p.note_top.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_note_bottom.id, self.p.note_bottom.to_rgb()[0], self.p.note_bottom.to_rgb()[1], self.p.note_bottom.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_note_time.id, self.p.note_time.to_rgb()[0], self.p.note_time.to_rgb()[1], self.p.note_time.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_left.id, self.p.particle_left.to_rgb()[0], self.p.particle_left.to_rgb()[1], self.p.particle_left.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_right.id, self.p.particle_right.to_rgb()[0], self.p.particle_right.to_rgb()[1], self.p.particle_right.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_top.id, self.p.particle_top.to_rgb()[0], self.p.particle_top.to_rgb()[1], self.p.particle_top.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_bottom.id, self.p.particle_bottom.to_rgb()[0], self.p.particle_bottom.to_rgb()[1], self.p.particle_bottom.to_rgb()[2]);
+                gl::Uniform3f(self.p.u_particle_time.id, self.p.particle_time.to_rgb()[0], self.p.particle_time.to_rgb()[1], self.p.particle_time.to_rgb()[2]);
+        }
 
             self.ogl.update(1.0 / self.p.framerate);
             self.ogl.draw();
@@ -406,11 +332,11 @@ impl Pianorium {
         self.ogl
             .to_zero(self.p.gravity / self.p.cores as f32 * self.ogl.frame as f32);
         for y in self.ogl.notes.vert.iter_mut().skip(1).step_by(3) {
-            *y = (*y / (self.p.max_frame as f32 / self.p.framerate) - 0.5) * 2.;
+            *y = (*y / self.p.max_time as f32 - 0.5) * 2.;
         }
 
         unsafe {
-            gl::Uniform1f(self.ogl.u_time.id, 0.0);
+            gl::Uniform1f(self.p.u_time.id, 0.0);
         }
         // unsafe { gl::Viewport(0, 0, (self.ogl.width/4) as i32, (self.ogl.height*3) as i32); } // with framebuffer change as well
         self.ogl.draw();
@@ -429,56 +355,137 @@ impl Pianorium {
     }
     /// Draws the GUI.
     fn draw_gui(&mut self) {
-        egui::Window::new("Pianorium").show(&self.gui.egui_ctx, |ui| {
-        egui::Grid::new("Pianorium").show(ui, |ui| {
-            ui.label("Width:");
-            ui.add(egui::Slider::new(&mut self.p.width, 1..=7680));
-            ui.end_row();
-            
-            ui.label("Height:");
-            ui.add(egui::Slider::new(&mut self.p.height, 1..=4320));
-            ui.end_row();
-            
-            ui.label("CPU Cores:");
-            ui.add(egui::Slider::new(&mut self.p.cores, 1..=num_cpus::get()));
-            ui.end_row();
-            
-            ui.label("Samples:");
-            ui.add(egui::Slider::new(&mut self.p.samples, 1..=255));
-            ui.end_row();
-            
-            ui.label("Framerate:");
-            ui.add(egui::Slider::new(&mut self.p.framerate, 0.0..=240.0));
-            ui.end_row();
-            
-            ui.label("Gravity:");
-            ui.add(egui::Slider::new(&mut self.p.gravity, 0.0..=10.0));
-            ui.end_row();
-            
-            ui.label("Background color:");
-            egui::widgets::color_picker::color_edit_button_hsva(
-                ui,
-                &mut self.p.bg,
-                self.p.alpha,
-            );
-            ui.end_row();
-            
-            ui.label("Notes color");
-            egui::widgets::color_picker::color_edit_button_hsva(
-                ui,
-                &mut self.p.notes,
-                self.p.alpha,
-            );
-            ui.end_row();
+        egui::Window::new("Preview").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Preview").show(ui, |ui| {
+                ui.label("Preview speed:");
+                ui.add(egui::Slider::new(&mut self.p.preview_speed, -100.0..=100.0));
+                ui.end_row();
 
-            ui.label("Particles color");
-            egui::widgets::color_picker::color_edit_button_hsva(
-                ui,
-                &mut self.p.particles,
-                self.p.alpha,
-            );
-            ui.end_row();
+                ui.label("Restart preview: ");
+                if ui.add(egui::Button::new("      ")).clicked() {
+                    self.ogl.to_zero(self.p.time);
+                    self.p.time= 0.0;
+                }
+                ui.end_row();
+            });
         });
+        egui::Window::new("General").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("General").show(ui, |ui| {
+                ui.label("Width:");
+                ui.add(egui::Slider::new(&mut self.p.width, 1..=7680));
+                ui.end_row();
+
+                ui.label("Height:");
+                ui.add(egui::Slider::new(&mut self.p.height, 1..=4320));
+                ui.end_row();
+
+                ui.label("CPU Cores:");
+                ui.add(egui::Slider::new(&mut self.p.cores, 1..=self.p.max_cores));
+                ui.end_row();
+
+                ui.label("Samples:");
+                ui.add(egui::Slider::new(&mut self.p.samples, 1..=50));
+                ui.end_row();
+
+                ui.label("Framerate:");
+                ui.add(egui::Slider::new(&mut self.p.framerate, 0.0..=240.0));
+                ui.end_row();
+
+                ui.label("Gravity:");
+                ui.add(egui::Slider::new(&mut self.p.gravity, 0.0..=3.0));
+                ui.end_row();
+            });
+        });
+        egui::Window::new("Coloring").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Coloring").show(ui, |ui| {
+                ui.label("Background color:");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.bg,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Notes color - Left");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.note_left,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Notes color - Right");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.note_right,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Notes color - Top");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.note_top,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Notes color - Bottom");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.note_bottom,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Notes color - Time");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.note_time,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Particles color - Left");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.particle_left,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Particles color - Right");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.particle_right,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Particles color - Top");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.particle_top,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Particles color - Bottom");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.particle_bottom,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Particles color - Time");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.particle_time,
+                    self.p.alpha,
+                );
+                ui.end_row();
+            });
         });
     }
 
@@ -605,93 +612,6 @@ impl Pianorium {
     }
 }
 
-// pub duration: f64,
-// pub tempo: f32,
-// pub border_radius: u8,
-// pub bgimg_file: &'static str,
-// pub vertical_img_divide: u8,
-/// Rendering parameters
-pub struct Parameters {
-    pub width: usize,
-    pub height: usize,
-    pub bytes: usize,
-    pub cores: usize,
-    pub samples: u8,
-    pub framerate: f32,
-    pub min_frame: usize,
-    pub max_frame: usize,
-    pub gravity: f32,
-    /// Relative path from where the executable is called
-    pub midi_file: String,
-    /// Relative path from where the executable is called
-    pub index_file: String,
-    pub mp4_file: String,
-    pub png_file: String,
-    pub clear_dir: bool,
-    pub bg: Hsva,
-    pub alpha: Alpha,
-    pub notes: Hsva,
-    pub particles: Hsva,
-}
-
-impl Default for Parameters {
-    fn default() -> Self {
-        let width: usize = 1000;
-        let height: usize = 500;
-        let bytes: usize = width * height * 4;
-        let cores: usize = num_cpus::get();
-        let samples: u8 = 11;
-        let framerate: f32 = 60.0;
-        let min_frame: usize = 0;
-        let max_frame: usize = 0;
-        let gravity: f32 = cores as f32 / framerate;
-        let midi_file = "test.mid".to_owned();
-        let mp4_file = "output.mp4".to_owned();
-        let png_file = "output.png".to_owned();
-        let clear_dir: bool = true;
-        let index_file = "index.txt".to_owned();
-        let bg: Hsva = Hsva {
-            h: 0.0,
-            s: 0.0,
-            v: 0.1,
-            a: 1.0,
-        };
-        let alpha: Alpha = Alpha::Opaque;
-        let notes: Hsva = Hsva {
-            h: 0.5,
-            s: 0.1,
-            v: 0.1,
-            a: 1.0,
-        };
-        let particles: Hsva = Hsva {
-            h: 0.75,
-            s: 0.5,
-            v: 0.5,
-            a: 1.0,
-        };
-        Parameters {
-            width,
-            height,
-            bytes,
-            cores,
-            samples,
-            framerate,
-            min_frame,
-            max_frame,
-            gravity,
-            midi_file,
-            mp4_file,
-            png_file,
-            clear_dir,
-            index_file,
-            bg,
-            alpha,
-            notes,
-            particles,
-        }
-    }
-}
-
 pub struct Encoder {}
 
 // fn draw_gui() { // Struct with Impl
@@ -722,10 +642,6 @@ pub struct OpenGLContext {
     pub vbo: Vbo,
     pub vao: Vao,
     pub ibo: Ibo,
-
-    pub program: Program,
-    pub u_time: Uniform,
-    pub u_resolution: Uniform,
 }
 
 // pub struct Shared { // Read-only
@@ -795,24 +711,15 @@ pub struct OpenGLContext {
 
 impl OpenGLContext {
     /// Returns a ready-to-use context and the final frame number
-    pub fn new(width: usize, height: usize, framerate: f32, midi_file: &str) -> (Self, usize) {
+    pub fn new(width: usize, height: usize, framerate: f32, gravity: f32, midi_file: &str) -> (Self, usize) {
         let bytes: usize = width * height * 4;
         let data: Vec<u8> = vec![0; bytes];
 
         let frame: usize = 0;
         let (notes, max_frame) =
-            Notes::from_midi(width as f32 / height as f32, framerate, midi_file).unwrap();
+            Notes::from_midi(width as f32 / height as f32, framerate, gravity, midi_file).unwrap();
 
         let particles: Particles = Particles::new();
-
-        let program: Program = create_program().unwrap();
-        let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
-        let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
-
-        unsafe {
-            gl::Uniform1f(u_time.id, 0.0);
-            gl::Uniform2f(u_resolution.id, width as f32, height as f32);
-        }
 
         let vbo: Vbo = Vbo::gen();
         vbo.set(&notes.vert);
@@ -839,19 +746,9 @@ impl OpenGLContext {
                 vbo,
                 vao,
                 ibo,
-
-                program,
-                u_time,
-                u_resolution,
             },
             max_frame,
         )
-    }
-
-    pub fn to_zero(&mut self, units: f32) {
-        self.frame = 0;
-        self.particles = Particles::new();
-        self.update(-units);
     }
 
     // pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
@@ -910,6 +807,12 @@ impl OpenGLContext {
 
         self.particles.update(diff, &self.notes.vert);
     }
+
+    pub fn to_zero(&mut self, units: f32) {
+        self.frame = 0;
+        self.particles = Particles::new();
+        self.update(-units);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -930,6 +833,7 @@ impl Notes {
     pub fn from_midi(
         wh_ratio: f32,
         framerate: f32,
+        gravity: f32,
         midi_file: &str,
     ) -> std::io::Result<(Notes, usize)> {
         // Done Twice instead of just ….clone().iter_mut { +0.5 }
@@ -1037,57 +941,33 @@ impl Notes {
             vert: vec![],
             ind: vec![],
         };
-        new.notes_to_vertices(wh_ratio).unwrap();
+        new.notes_to_vertices(wh_ratio, gravity).unwrap();
 
         Ok((new, max_frame))
     }
 
-    pub fn notes_to_vertices(&mut self, wh_ratio: f32) -> std::io::Result<()> {
+    pub fn notes_to_vertices(&mut self, wh_ratio: f32, gravity: f32) -> std::io::Result<()> {
         for (i, n) in self.notes.iter().enumerate() {
             let ver2: Vec<f32> = vec![
-                //               x                             y          color
-                LAYOUT[n.note as usize - 21][0],
-                (n.start),
-                1.0,
-                LAYOUT[n.note as usize - 21][1],
-                (n.start),
-                1.0,
-                LAYOUT[n.note as usize - 21][1],
-                (n.end),
-                1.0,
-                LAYOUT[n.note as usize - 21][0],
-                (n.end),
-                1.0,
-                //               x                             y          color
-                LAYOUT[n.note as usize - 21][0] + 0.007,
-                (n.start + 0.007 * wh_ratio),
-                0.9,
-                LAYOUT[n.note as usize - 21][1] - 0.007,
-                (n.start + 0.007 * wh_ratio),
-                0.9,
-                LAYOUT[n.note as usize - 21][1] - 0.007,
-                (n.end - 0.007 * wh_ratio),
-                0.9,
-                LAYOUT[n.note as usize - 21][0] + 0.007,
-                (n.end - 0.007 * wh_ratio),
-                0.9,
+                //               x                   y       color
+                LAYOUT[n.note as usize - 21][0],  (gravity*n.start),  1.0,
+                LAYOUT[n.note as usize - 21][1],  (gravity*n.start),  1.0,
+                LAYOUT[n.note as usize - 21][1],  (gravity*n.end),    1.0,
+                LAYOUT[n.note as usize - 21][0],  (gravity*n.end),    1.0,
+                //               x                                        y             color
+                LAYOUT[n.note as usize - 21][0] + 0.007,  ((n.start+0.007*wh_ratio)*gravity),  0.9,
+                LAYOUT[n.note as usize - 21][1] - 0.007,  ((n.start+0.007*wh_ratio)*gravity),  0.9,
+                LAYOUT[n.note as usize - 21][1] - 0.007,  ((n.end-0.007*wh_ratio)*gravity),    0.9,
+                LAYOUT[n.note as usize - 21][0] + 0.007,  ((n.end-0.007*wh_ratio)*gravity),    0.9,
             ];
             self.vert.extend(ver2);
 
             let i2: u32 = i as u32;
             let ind2: Vec<u32> = vec![
-                0 + 8 * i2,
-                2 + 8 * i2,
-                1 + 8 * i2,
-                0 + 8 * i2,
-                2 + 8 * i2,
-                3 + 8 * i2,
-                4 + 8 * i2,
-                6 + 8 * i2,
-                5 + 8 * i2,
-                4 + 8 * i2,
-                6 + 8 * i2,
-                7 + 8 * i2,
+                0+8*i2, 2+8*i2, 1+8*i2,
+                0+8*i2, 2+8*i2, 3+8*i2,
+                4+8*i2, 6+8*i2, 5+8*i2,
+                4+8*i2, 6+8*i2, 7+8*i2,
             ];
             self.ind.extend(ind2);
         }

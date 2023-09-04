@@ -8,6 +8,16 @@ out vec4 Color;
 
 uniform float u_time;
 uniform vec2 u_resolution;
+uniform vec3 u_note_left;
+uniform vec3 u_note_right;
+uniform vec3 u_note_top;
+uniform vec3 u_note_bottom;
+uniform vec3 u_note_time;
+uniform vec3 u_particle_left;
+uniform vec3 u_particle_right;
+uniform vec3 u_particle_top;
+uniform vec3 u_particle_bottom;
+uniform vec3 u_particle_time;
 
 mat2 rotate(float angle)
 {
@@ -21,10 +31,10 @@ void main()
 {
     vec2 uv = vec2(u_resolution.x*IN.Position.x, u_resolution.y*IN.Position.y); 
     if (IN.Color == 1.0) {
-        Color = vec4((IN.Position.x+1.0)/4.0, 0.1098+(cos(u_time)+1.0)/20.0+IN.Position.y/20.0, 0.1098+(cos(u_time*2.0)+1.0)/20.0, 1.0);
+        Color = vec4((mix(u_note_left, u_note_right, (IN.Position.x+1.0)/2.0) * mix(u_note_bottom, u_note_top, (IN.Position.y+1.0)/2.0))*0.5, 1.0);
     } 
     else if (IN.Color == 0.9) {  
-        Color = vec4(0.5+(IN.Position.x+1.0)/4.0, 0.1098+(cos(u_time)+1.0)/20.0+IN.Position.y/20.0, 0.1098+(cos(u_time*2.0)+1.0)/20.0, 1.0);
+        Color = vec4((mix(u_note_left, u_note_right, (IN.Position.x+1.0)/2.0) * mix(u_note_bottom, u_note_top, (IN.Position.y+1.0)/2.0)), 1.0);
 
         /* // Shader Art by lukasxl on ShaderToy
         vec2 uv = IN.Position.xy*vec2(u_resolution.x/u_resolution.y, 1.0); 
@@ -56,7 +66,6 @@ void main()
         */
     }
     else if (IN.Color == 0.8) {
-        Color = vec4(0.75+(IN.Position.x+1.0)/8.0, 0.5+(cos(u_time)+1.0)/20.0+IN.Position.y/20.0, 0.5+(cos(u_time*3.0)+1.0)/20.0, 1.0);
+        Color = vec4((mix(u_particle_left, u_particle_right, (IN.Position.x+1.0)/2.0) * mix(u_particle_bottom, u_particle_top, (IN.Position.y+1.0)/2.0)), 1.0);
     }
-    Color=mix(Color, vec4(0.5, 0.0, 1.0, 1.0), (IN.Position.y*0.4+IN.Position.x*0.6*(sin(u_time/2.0))));
 }
