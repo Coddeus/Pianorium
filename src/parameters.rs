@@ -86,15 +86,15 @@ impl Default for Parameters {
 
         let program: Program = create_program().unwrap();
         program.set_used();
-        
+
         let note_left: Hsva = Hsva {
-            h: 0.8,
+            h: 0.75,
             s: 0.7,
             v: 1.0,
             a: 1.0,
         };
         let note_right: Hsva = Hsva {
-            h: 0.9,
+            h: 0.95,
             s: 0.7,
             v: 1.0,
             a: 1.0,
@@ -106,7 +106,7 @@ impl Default for Parameters {
             a: 1.0,
         };
         let note_bottom: Hsva = Hsva {
-            h: 0.95,
+            h: 1.0,
             s: 1.0,
             v: 1.0,
             a: 1.0,

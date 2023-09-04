@@ -4,8 +4,10 @@
         {
             "name": "Debug",
             "type": "cppvsdbg",
+            // Linux, MacOS: "cppdbg"
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/pianorium.exe",
+            // Linux, MacOS: "${workspaceFolder}/target/debug/pianorium"
             "args": [
                 "1920",
                 "1080",
@@ -22,8 +24,10 @@
         {
             "name": "Release",
             "type": "cppvsdbg",
+            // Linux, MacOS: "cppdbg"
             "request": "launch",
             "program": "${workspaceFolder}/target/release/pianorium.exe",
+            // Linux, MacOS: "${workspaceFolder}/target/release/pianorium"
             "args": [
                 "1920",
                 "1080",
