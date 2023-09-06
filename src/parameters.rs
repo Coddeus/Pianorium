@@ -31,21 +31,9 @@ pub struct Parameters {
 
     pub program: Program,
 
-    pub u_time: Uniform,
     pub time: f32,
-    pub u_resolution: Uniform,
-
-    pub u_note_left: Uniform,
-    pub u_note_right: Uniform,
-    pub u_note_top: Uniform,
-    pub u_note_bottom: Uniform,
-    pub u_note_time: Uniform,
-    pub u_particle_left: Uniform,
-    pub u_particle_right: Uniform,
-    pub u_particle_top: Uniform,
-    pub u_particle_bottom: Uniform,
-    pub u_particle_time: Uniform,
-
+    pub octave_line: f32,
+    pub octave_line_color: Hsva,
     pub note_left: Hsva,
     pub note_right: Hsva,
     pub note_top: Hsva,
@@ -56,6 +44,20 @@ pub struct Parameters {
     pub particle_top: Hsva,
     pub particle_bottom: Hsva,
     pub particle_time: Hsva,
+
+    pub u_time: Uniform,
+    pub u_resolution: Uniform,
+    pub u_octave_line_color: Uniform,
+    pub u_note_left: Uniform,
+    pub u_note_right: Uniform,
+    pub u_note_top: Uniform,
+    pub u_note_bottom: Uniform,
+    pub u_note_time: Uniform,
+    pub u_particle_left: Uniform,
+    pub u_particle_right: Uniform,
+    pub u_particle_top: Uniform,
+    pub u_particle_bottom: Uniform,
+    pub u_particle_time: Uniform,
 }
 
 impl Default for Parameters {
@@ -71,11 +73,18 @@ impl Default for Parameters {
         let max_time: f32 = 0.0;
         let gravity: f32 = 1.0;
         let preview_speed: f32 = 1.0;
-        let midi_file = "test.mid".to_owned();
-        let mp4_file = "output.mp4".to_owned();
-        let png_file = "output.png".to_owned();
-        let clear_dir: bool = true;
-        let index_file = "index.txt".to_owned();
+        let midi_file: String = "test.mid".to_owned();
+        let mp4_file: String = "output.mp4".to_owned();
+        let png_file: String = "output.png".to_owned();
+        let clear_dir: bool = false;
+        let index_file: String = "index.txt".to_owned();
+        let octave_line: f32 = 0.0;
+        let octave_line_color: Hsva = Hsva {
+            h: 0.2,
+            s: 0.1,
+            v: 1.0,
+            a: 1.0,
+        };
         let bg: Hsva = Hsva {
             h: 0.0,
             s: 0.0,
@@ -100,13 +109,13 @@ impl Default for Parameters {
             a: 1.0,
         };
         let note_top: Hsva = Hsva {
-            h: 0.75,
+            h: 0.70,
             s: 1.0,
             v: 1.0,
             a: 1.0,
         };
         let note_bottom: Hsva = Hsva {
-            h: 1.0,
+            h: 0.96,
             s: 1.0,
             v: 1.0,
             a: 1.0,
@@ -150,6 +159,7 @@ impl Default for Parameters {
 
         let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
         let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
+        let u_octave_line_color: Uniform = Uniform::new(program.id, "u_octave_line_color").unwrap();
         let u_note_left: Uniform = Uniform::new(program.id, "u_note_left").unwrap();
         let u_note_right: Uniform = Uniform::new(program.id, "u_note_right").unwrap();
         let u_note_top: Uniform = Uniform::new(program.id, "u_note_top").unwrap();
@@ -164,6 +174,12 @@ impl Default for Parameters {
         unsafe {
             gl::Uniform1f(u_time.id, 0.0);
             gl::Uniform2f(u_resolution.id, width as f32, height as f32);
+            gl::Uniform3f(
+                u_octave_line_color.id,
+                octave_line_color.to_rgb()[0],
+                octave_line_color.to_rgb()[1],
+                octave_line_color.to_rgb()[2],
+            );
             gl::Uniform3f(
                 u_note_left.id,
                 note_left.to_rgb()[0],
@@ -243,24 +259,13 @@ impl Default for Parameters {
             png_file,
             clear_dir,
             bg,
+            octave_line,
+            octave_line_color,
             alpha,
 
             program,
 
-            u_time,
             time,
-            u_resolution,
-
-            u_note_left,
-            u_note_right,
-            u_note_top,
-            u_note_bottom,
-            u_note_time,
-            u_particle_left,
-            u_particle_right,
-            u_particle_top,
-            u_particle_bottom,
-            u_particle_time,
 
             note_left,
             note_right,
@@ -272,6 +277,26 @@ impl Default for Parameters {
             particle_top,
             particle_bottom,
             particle_time,
+
+            u_time,
+            u_resolution,
+            u_octave_line_color,
+            u_note_left,
+            u_note_right,
+            u_note_top,
+            u_note_bottom,
+            u_note_time,
+            u_particle_left,
+            u_particle_right,
+            u_particle_top,
+            u_particle_bottom,
+            u_particle_time,
         }
+    }
+}
+
+impl Parameters {
+    pub fn adjust(&mut self) {
+        self.bytes = self.width*self.height*4;
     }
 }

@@ -8,6 +8,7 @@ out vec4 Color;
 
 uniform float u_time;
 uniform vec2 u_resolution;
+uniform vec3 u_octave_line_color;
 uniform vec3 u_note_left;
 uniform vec3 u_note_right;
 uniform vec3 u_note_top;
@@ -67,5 +68,8 @@ void main()
     }
     else if (IN.Color == 0.8) {
         Color = vec4((mix(u_particle_left, u_particle_right, (IN.Position.x+1.0)/2.0) * mix(u_particle_bottom, u_particle_top, (IN.Position.y+1.0)/2.0)), 1.0);
+    }
+    else if (IN.Color == 0.7) {
+        Color = vec4(u_octave_line_color, 1.0);
     }
 }
