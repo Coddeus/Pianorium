@@ -80,7 +80,7 @@ impl Default for Parameters {
         let png_file: String = "output.png".to_owned();
         let clear_dir: bool = false;
         let index_file: String = "pianorium_index.txt".to_owned();
-        let octave_line: f32 = 0.0;
+        let octave_line: f32 = 0.0001;
         let octave_line_color: Hsva = Hsva {
             h: 0.2,
             s: 0.1,

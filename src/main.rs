@@ -268,12 +268,8 @@ impl Pianorium {
         let time = Instant::now();
         let data: Vec<u8> = vec![0; 800 * 600 * 4];
         let frame: usize = 0;
-        let ol = Ol {
-            halfspan: p.octave_line,
-            height: p.max_time * p.gravity + 0.5,
-            vert: vec![],
-            ind: vec![],
-        };
+        let ol: Ol = Ol::create(p.octave_line).unwrap();
+
         let (notes, max_time) =
             Notes::from_midi(800 as f32 / 600 as f32, 60.0, 1.0, 0.0001, "test.mid").unwrap();
         let particles: Particles = Particles::new();
@@ -424,7 +420,8 @@ impl Pianorium {
                 );
             }
             self.notes.update(time_diff * self.p.gravity);
-            self.particles.update(time_diff * self.p.gravity, &self.notes.vert);
+            self.particles
+                .update(time_diff * self.p.gravity, &self.notes.vert);
             self.draw();
 
             self.draw_gui();
@@ -622,7 +619,8 @@ impl Pianorium {
 
             let time = Instant::now();
             self.notes.update(1.0 / self.p.framerate * self.p.gravity);
-            self.particles.update(1.0 / self.p.framerate * self.p.gravity, &self.notes.vert);
+            self.particles
+                .update(1.0 / self.p.framerate * self.p.gravity, &self.notes.vert);
             println!("Update: {:?}", time.elapsed());
             let time = Instant::now();
             self.draw();
@@ -697,7 +695,9 @@ impl Pianorium {
 
                 ui.label("Restart preview: ");
                 if ui.add(egui::Button::new("      ")).clicked() {
-                    self.to_start();
+                    self.notes.update(-self.p.time * self.p.gravity);
+                    self.p.time = 0.;
+                    self.frame = 0;
                     self.particles = Particles::new();
                 }
                 ui.end_row();
@@ -730,7 +730,14 @@ impl Pianorium {
                     .add(egui::Slider::new(&mut self.p.gravity, 0.3..=2.0))
                     .changed()
                 {
-                    self.on_gravity_change();
+                    self.notes
+                        .notes_to_vertices(
+                            self.p.width as f32 / self.p.height as f32,
+                            self.p.gravity,
+                        )
+                        .unwrap();
+                    self.notes.update(self.p.time * self.p.gravity);
+                    self.p.latest_gravity = self.p.gravity;
                 };
                 ui.end_row();
             });
@@ -1023,7 +1030,7 @@ impl Pianorium {
         self.p.time = 0.;
         self.frame = 0;
     }
-    
+
     #[inline(always)]
     pub fn to_time(&mut self, time: f32) {
         self.notes.update((self.p.time - time) * self.p.gravity);
@@ -1031,16 +1038,10 @@ impl Pianorium {
 
     #[inline(always)]
     pub fn to_end(&mut self) {
-        self.notes.update((self.p.max_time-self.p.time) * self.p.gravity);
+        self.notes
+            .update((self.p.max_time - self.p.time) * self.p.gravity);
         self.p.time = self.p.max_time;
         self.frame = (self.p.max_time * self.p.framerate) as usize;
-    }
-
-    #[inline(always)]
-    pub fn on_gravity_change(&mut self) {
-        self.notes.notes_to_vertices( self.p.width as f32 / self.p.height as f32, self.p.gravity).unwrap();
-        self.notes.update(self.p.time * self.p.gravity);
-        self.p.latest_gravity = self.p.gravity;
     }
 }
 
@@ -1178,14 +1179,23 @@ impl OpenGLContext {
 /// Vertical Octave Lines
 pub struct Ol {
     halfspan: f32,
-    height: f32,
     vert: Vec<f32>,
     ind: Vec<u32>,
 }
 
 impl Ol {
+    pub fn create(halfspan: f32) -> std::io::Result<Self> {
+        let mut ol = Ol {
+            halfspan,
+            vert: vec![],
+            ind: vec![],
+        };
+        ol.ol_to_vertind().unwrap();
+        Ok(ol)
+    }
+
     /// Can be called before "notes_to_vertices" to display octave delimiters.
-    fn ol_to_vertices(&mut self) -> std::io::Result<()> {
+    fn ol_to_vertind(&mut self) -> std::io::Result<()> {
         for (i, x) in [
             -24. / 26.,
             -17. / 26.,
@@ -1202,16 +1212,16 @@ impl Ol {
             let ver2: Vec<f32> = vec![
                 //        x                 y           color
                 x - self.halfspan,
-                -0.5,
+                -0.95,
                 0.7,
                 x + self.halfspan,
-                -0.5,
+                -0.95,
                 0.7,
                 x + self.halfspan,
-                self.height,
+                0.95,
                 0.7,
                 x - self.halfspan,
-                self.height,
+                0.95,
                 0.7,
             ];
             self.vert.extend(ver2);
