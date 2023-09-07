@@ -242,7 +242,7 @@ impl Pianorium {
         gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
         gl_attr.set_context_version(3, 3);
         gl_attr.set_double_buffer(true);
-        gl_attr.set_multisample_samples(6);
+        gl_attr.set_multisample_samples(11);
         let window = video_subsystem
             .window("Pianorium", 800, 600)
             .resizable()
@@ -519,13 +519,11 @@ impl Pianorium {
         self.vao.set();
         self.ibo.set(&self.notes.ind);
         self.p.program.set_used();
-        self.refresh();
 
-        let tex = Texture::gen();
-        tex.set(self.p.width as i32, self.p.height as i32);
-        let fbo = Fbo::gen();
-        fbo.set(tex.id);
-
+        let tex = Textures::gen(); // Both standard and multisample
+        tex.set(self.p.width as i32, self.p.height as i32, self.p.samples);
+        let fbo = Fbos::gen(); // Both standard and multisample
+        fbo.set(tex);
         let pbo = Pbo::gen();
         pbo.set(self.p.bytes);
 
@@ -623,10 +621,30 @@ impl Pianorium {
                 .update(1.0 / self.p.framerate * self.p.gravity, &self.notes.vert);
             println!("Update: {:?}", time.elapsed());
             let time = Instant::now();
+            fbo.bind(gl::FRAMEBUFFER, fbo.m);
             self.draw();
             println!("Draw: {:?}", time.elapsed());
 
             let time = Instant::now();
+            fbo.bind(gl::DRAW_FRAMEBUFFER, fbo.s);
+            unsafe {
+                gl::BlitFramebuffer(
+                    0,
+                    0,
+                    self.p.width as GLint,
+                    self.p.height as GLint,
+                    0,
+                    0,
+                    self.p.width as GLint,
+                    self.p.height as GLint,
+                    gl::COLOR_BUFFER_BIT,
+                    gl::NEAREST,
+                );
+            }
+            println!("Blit: {:?}", time.elapsed());
+
+            let time = Instant::now();
+            fbo.bind(gl::READ_FRAMEBUFFER, fbo.s);
             self.read();
             println!("Read: {:?}", time.elapsed());
 
@@ -686,6 +704,7 @@ impl Pianorium {
         Ok(())
     }
     /// Draws the GUI.
+    // Needs reorganise
     fn draw_gui(&mut self) {
         egui::Window::new("Preview").show(&self.gui.egui_ctx, |ui| {
             egui::Grid::new("Preview").show(ui, |ui| {
@@ -694,7 +713,7 @@ impl Pianorium {
                 ui.end_row();
 
                 ui.label("Restart preview: ");
-                if ui.add(egui::Button::new("      ")).clicked() {
+                if ui.add(egui::Button::new("Restart")).clicked() {
                     self.notes.update(-self.p.time * self.p.gravity);
                     self.p.time = 0.;
                     self.frame = 0;
@@ -706,11 +725,21 @@ impl Pianorium {
         egui::Window::new("General").show(&self.gui.egui_ctx, |ui| {
             egui::Grid::new("General").show(ui, |ui| {
                 ui.label("Width:");
-                ui.add(egui::Slider::new(&mut self.p.width, 1..=7680));
+                if ui
+                    .add(egui::Slider::new(&mut self.p.width, 1..=7680))
+                    .changed()
+                {
+                    self.p.bytes = self.p.width * self.p.height * 4;
+                }
                 ui.end_row();
 
                 ui.label("Height:");
-                ui.add(egui::Slider::new(&mut self.p.height, 1..=4320));
+                if ui
+                    .add(egui::Slider::new(&mut self.p.height, 1..=4320))
+                    .changed()
+                {
+                    self.p.bytes = self.p.width * self.p.height * 4;
+                }
                 ui.end_row();
 
                 ui.label("CPU Cores:");
@@ -718,7 +747,16 @@ impl Pianorium {
                 ui.end_row();
 
                 ui.label("Samples:");
-                ui.add(egui::Slider::new(&mut self.p.samples, 1..=50));
+                if ui
+                    .add(egui::Slider::new(&mut self.p.samples, 1..=50))
+                    .changed()
+                {
+                    self.sdl
+                        .video()
+                        .unwrap()
+                        .gl_attr()
+                        .set_multisample_samples(self.p.samples);
+                }
                 ui.end_row();
 
                 ui.label("Framerate:");
@@ -844,17 +882,6 @@ impl Pianorium {
             );
             ui.label("A progress bar may be added in the future.");
         });
-    }
-
-    pub fn refresh(&mut self) {
-        self.p.bytes = self.p.width * self.p.height * 4;
-        if self.p.samples > 1 {
-            self.sdl
-                .video()
-                .unwrap()
-                .gl_attr()
-                .set_multisample_samples(self.p.samples)
-        }
     }
 
     fn zero(&mut self) -> std::io::Result<()> {
@@ -1442,35 +1469,40 @@ impl Notes {
     }
 }
 
-pub struct Fbo {
-    pub id: GLuint,
+pub struct Fbos {
+    pub s: GLuint,
+    pub m: GLuint,
 }
 
-impl Drop for Fbo {
+impl Drop for Fbos {
     fn drop(&mut self) {
         self.unbind();
         self.delete();
     }
 }
 
-impl Fbo {
+impl Fbos {
     pub fn gen() -> Self {
-        let mut id: GLuint = 0;
+        let mut s: GLuint = 0;
+        let mut m: GLuint = 0;
         unsafe {
-            gl::GenFramebuffers(1, &mut id);
+            gl::GenFramebuffers(2, [s, m].as_mut_ptr());
         }
-        Fbo { id }
+        Fbos { s, m }
     }
 
-    pub fn set(&self, texture: GLuint) {
-        self.bind();
-        self.tex(texture);
+    pub fn set(&self, tex: Textures) {
+        self.bind(gl::FRAMEBUFFER, self.s);
+        self.tex(tex.s, gl::TEXTURE_2D);
+        self.check();
+        self.bind(gl::FRAMEBUFFER, self.m);
+        self.tex(tex.m, gl::TEXTURE_2D_MULTISAMPLE);
         self.check();
     }
 
-    fn bind(&self) {
+    pub fn bind(&self, target: GLenum, framebuffer: GLuint) {
         unsafe {
-            gl::BindFramebuffer(gl::FRAMEBUFFER, self.id);
+            gl::BindFramebuffer(target, framebuffer);
         }
     }
 
@@ -1484,20 +1516,20 @@ impl Fbo {
         }
     }
 
-    fn tex(&self, texture: GLuint) {
+    fn tex(&self, texture: GLuint, textarget: GLenum) {
         unsafe {
             gl::FramebufferTexture2D(
                 gl::FRAMEBUFFER,
                 gl::COLOR_ATTACHMENT0,
-                gl::TEXTURE_2D,
+                textarget,
                 texture,
                 0,
             );
         }
     }
 
+    /// Back to default window-projected framebuffer
     fn unbind(&self) {
-        // Back to default window-projected framebuffer
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
@@ -1505,7 +1537,7 @@ impl Fbo {
 
     fn delete(&self) {
         unsafe {
-            gl::DeleteFramebuffers(1, &self.id);
+            gl::DeleteFramebuffers(2, [self.s, self.m].as_ptr());
         }
     }
 }
@@ -1628,32 +1660,34 @@ impl Pbo {
     }
 }
 
-pub struct Texture {
-    pub id: GLuint,
+pub struct Textures {
+    pub s: GLuint,
+    pub m: GLuint,
 }
 
-impl Drop for Texture {
+impl Drop for Textures {
     fn drop(&mut self) {
         self.unbind();
         self.delete();
     }
 }
 
-impl Texture {
+impl Textures {
     pub fn gen() -> Self {
-        let mut id: GLuint = 0;
+        let s: GLuint = 0; // Standard
+        let m: GLuint = 0; // Multisample
         unsafe {
-            gl::GenTextures(1, &mut id);
+            gl::GenTextures(2, [s, m].as_mut_ptr());
         }
-        Texture { id }
+        Textures { s, m }
     }
 
-    pub fn set(&self, width: i32, height: i32) {
+    pub fn set(&self, width: i32, height: i32, samples: u8) {
         self.bind();
-        self.setup(width, height);
+        self.setup(width, height, samples);
     }
 
-    fn setup(&self, width: i32, height: i32) {
+    fn setup(&self, width: i32, height: i32, samples: u8) {
         unsafe {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
@@ -1668,24 +1702,45 @@ impl Texture {
                 gl::UNSIGNED_BYTE,
                 null(),
             );
+
+            gl::TexParameteri(
+                gl::TEXTURE_2D_MULTISAMPLE,
+                gl::TEXTURE_MIN_FILTER,
+                gl::LINEAR as i32,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D_MULTISAMPLE,
+                gl::TEXTURE_MAG_FILTER,
+                gl::LINEAR as i32,
+            );
+            gl::TexImage2DMultisample(
+                gl::TEXTURE_2D_MULTISAMPLE,
+                samples as GLsizei,
+                gl::BGRA,
+                width,
+                height,
+                0,
+            );
         }
     }
 
     fn bind(&self) {
         unsafe {
-            gl::BindTexture(gl::TEXTURE_2D, self.id);
+            gl::BindTexture(gl::TEXTURE_2D, self.s);
+            gl::BindTexture(gl::TEXTURE_2D_MULTISAMPLE, self.m);
         }
     }
 
     fn unbind(&self) {
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, 0);
+            gl::BindTexture(gl::TEXTURE_2D_MULTISAMPLE, 0);
         }
     }
 
     fn delete(&self) {
         unsafe {
-            gl::DeleteBuffers(1, &self.id);
+            gl::DeleteBuffers(2, [self.s, self.m].as_ptr());
         }
     }
 }
