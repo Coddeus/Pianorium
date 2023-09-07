@@ -34,7 +34,7 @@ pub struct Parameters {
 
     pub time: f32,
     pub octave_line: f32,
-    pub octave_line_color: Hsva,
+    pub ol_color: Hsva,
     pub note_left: Hsva,
     pub note_right: Hsva,
     pub note_top: Hsva,
@@ -48,7 +48,7 @@ pub struct Parameters {
 
     pub u_time: Uniform,
     pub u_resolution: Uniform,
-    pub u_octave_line_color: Uniform,
+    pub u_ol_color: Uniform,
     pub u_note_left: Uniform,
     pub u_note_right: Uniform,
     pub u_note_top: Uniform,
@@ -81,9 +81,9 @@ impl Default for Parameters {
         let clear_dir: bool = false;
         let index_file: String = "pianorium_index.txt".to_owned();
         let octave_line: f32 = 0.0001;
-        let octave_line_color: Hsva = Hsva {
+        let ol_color: Hsva = Hsva {
             h: 0.2,
-            s: 0.1,
+            s: 0.3,
             v: 1.0,
             a: 1.0,
         };
@@ -161,7 +161,7 @@ impl Default for Parameters {
 
         let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
         let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
-        let u_octave_line_color: Uniform = Uniform::new(program.id, "u_octave_line_color").unwrap();
+        let u_ol_color: Uniform = Uniform::new(program.id, "u_ol_color").unwrap();
         let u_note_left: Uniform = Uniform::new(program.id, "u_note_left").unwrap();
         let u_note_right: Uniform = Uniform::new(program.id, "u_note_right").unwrap();
         let u_note_top: Uniform = Uniform::new(program.id, "u_note_top").unwrap();
@@ -177,10 +177,10 @@ impl Default for Parameters {
             gl::Uniform1f(u_time.id, 0.0);
             gl::Uniform2f(u_resolution.id, width as f32, height as f32);
             gl::Uniform3f(
-                u_octave_line_color.id,
-                octave_line_color.to_rgb()[0],
-                octave_line_color.to_rgb()[1],
-                octave_line_color.to_rgb()[2],
+                u_ol_color.id,
+                ol_color.to_rgb()[0],
+                ol_color.to_rgb()[1],
+                ol_color.to_rgb()[2],
             );
             gl::Uniform3f(
                 u_note_left.id,
@@ -263,7 +263,7 @@ impl Default for Parameters {
             clear_dir,
             bg,
             octave_line,
-            octave_line_color,
+            ol_color,
             alpha,
 
             program,
@@ -283,7 +283,7 @@ impl Default for Parameters {
 
             u_time,
             u_resolution,
-            u_octave_line_color,
+            u_ol_color,
             u_note_left,
             u_note_right,
             u_note_top,
