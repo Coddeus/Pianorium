@@ -98,7 +98,7 @@ impl Encoder {
     //     if global_header {
     //         encoder.set_flags(codec::Flags::GLOBAL_HEADER);
     //     }
-// 
+    //
     //     encoder
     //         .open_with(x264_opts)
     //         .expect("error opening libx264 encoder with supplied settings");
@@ -119,15 +119,15 @@ impl Encoder {
     //         last_log_time: Instant::now(),
     //     })
     // }
-// 
+    //
     // fn send_packet_to_decoder(&mut self, packet: &Packet) {
     //     self.decoder.send_packet(packet).unwrap();
     // }
-// 
+    //
     // fn send_eof_to_decoder(&mut self) {
     //     self.decoder.send_eof().unwrap();
     // }
-// 
+    //
     // fn receive_and_process_decoded_frames(
     //     &mut self,
     //     octx: &mut format::context::Output,
@@ -146,15 +146,15 @@ impl Encoder {
     //         self.receive_and_process_encoded_packets(octx, ost_time_base);
     //     }
     // }
-// 
+    //
     // fn send_frame_to_encoder(&mut self, frame: &frame::Video) {
     //     self.encoder.send_frame(frame).unwrap();
     // }
-// 
+    //
     // fn send_eof_to_encoder(&mut self) {
     //     self.encoder.send_eof().unwrap();
     // }
-// 
+    //
     // fn receive_and_process_encoded_packets(
     //     &mut self,
     //     octx: &mut format::context::Output,
@@ -167,7 +167,7 @@ impl Encoder {
     //         encoded.write_interleaved(octx).unwrap();
     //     }
     // }
-// 
+    //
     // fn log_progress(&mut self, timestamp: f64) {
     //     if !self.logging_enabled
     //         || (self.frame_count - self.last_log_frame_count < 100
@@ -202,12 +202,26 @@ fn parse_opts<'a>(s: String) -> Option<Dictionary<'a>> {
 pub struct Pianorium {
     /// The rendering parameters, which can be changed through the GUI.
     pub p: Parameters,
-    /// Resizeable window.
-    pub winsdl: Winsdl,
+
+    pub sdl: Sdl,
+    pub window: Window,
+    pub gl_context: GLContext,
+    pub gl: (),
+    pub event_pump: EventPump,
+
     /// GUI-drawing components
     pub gui: Gui,
-    /// The background task which renders the final video.
-    pub ogl: OpenGLContext,
+
+    pub frame: usize,
+    pub data: Vec<u8>,
+    pub ol: Ol,
+    pub notes: Notes,
+    pub particles: Particles,
+    pub vbo: Vbo,
+    pub vao: Vao,
+    pub ibo: Ibo,
+
+    // pub frames: Vec<Vec<u8>>,
     pub encoder: Encoder,
 }
 
@@ -222,13 +236,63 @@ impl Drop for Pianorium {
 impl Pianorium {
     /// Creates a ready-to-use Pianorium app.
     pub fn new() -> Result<Self, &'static str> {
-        let winsdl: Winsdl = Winsdl::new(800, 600, 3).unwrap();
+        let sdl = sdl2::init().unwrap();
+        let video_subsystem = sdl.video().unwrap();
+        let gl_attr = video_subsystem.gl_attr();
+        gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
+        gl_attr.set_context_version(3, 3);
+        gl_attr.set_double_buffer(true);
+        gl_attr.set_multisample_samples(6);
+        let window = video_subsystem
+            .window("Pianorium", 800, 600)
+            .resizable()
+            .opengl()
+            .build()
+            .unwrap();
+        let gl_context = window.gl_create_context().unwrap();
+        let gl = gl::load_with(|s| {
+            video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
+        });
+        window
+            .subsystem()
+            .gl_set_swap_interval(sdl2::video::SwapInterval::Immediate)
+            .unwrap();
+        unsafe {
+            gl::Enable(gl::MULTISAMPLE);
+            gl::Enable(gl::BLEND);
+        }
+        let event_pump: sdl2::EventPump = sdl.event_pump().unwrap();
+
         let mut p: Parameters = Parameters::default();
 
-        let (ogl, max_time) = OpenGLContext::new(p.width, p.height, 60.0, p.gravity, p.octave_line, &p.midi_file);
+        let time = Instant::now();
+        let data: Vec<u8> = vec![0; 800 * 600 * 4];
+        let frame: usize = 0;
+        let ol = Ol {
+            halfspan: p.octave_line,
+            height: p.max_time * p.gravity + 0.5,
+            vert: vec![],
+            ind: vec![],
+        };
+        let (notes, max_time) =
+            Notes::from_midi(800 as f32 / 600 as f32, 60.0, 1.0, 0.0001, "test.mid").unwrap();
+        let particles: Particles = Particles::new();
+        let vbo: Vbo = Vbo::gen();
+        vbo.set(&notes.vert);
+        let vao: Vao = Vao::gen();
+        vao.set();
+        let ibo: Ibo = Ibo::gen();
+        ibo.set(&notes.ind);
+        unsafe {
+            gl::Viewport(0, 0, 800 as i32, 600 as i32);
+            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        }
+        println!("Create OpenGLContext: {:?}", time.elapsed());
+
         p.max_time = max_time;
 
-        let gui: Gui = Gui::new(&winsdl.window).unwrap();
+        let gui: Gui = Gui::new(&window).unwrap();
         // HANDLES FOR OPENGL
         // let handles: Vec<JoinHandle<OpenGLContext>> = fill_handles(p.width, p.height, p.framerate, &p.midi_file).unwrap();
         let encoder: Encoder = Encoder {};
@@ -237,58 +301,67 @@ impl Pianorium {
 
         Ok(Pianorium {
             p,
-            winsdl,
+            sdl,
+            window,
+            gl_context,
+            gl,
+            event_pump,
             gui,
-            ogl,
+            frame,
+            data,
+            ol,
+            notes,
+            particles,
+            vbo,
+            vao,
+            ibo,
             encoder,
         })
     }
 
     /// Plays the song with realtime changes from the GUI.
     pub fn play(&mut self) -> Result<(), String> {
-        self.ogl
-            .to_zero(self.p.gravity / self.p.cores as f32 * self.ogl.frame as f32);
-        self.winsdl
-            .window
+        self.window
             .subsystem()
             .gl_set_swap_interval(SwapInterval::VSync)
             .unwrap();
 
         // let ogl = self.handles.remove(0).join().unwrap();
-        // self.ogl.to_zero();
+        // self.to_zero();
         let mut rgb: [f32; 3] = [0.1, 0.1, 0.1];
 
         println!("Playing the visualization…");
-        let mut start_time = Instant::now();
-        let mut since_last: f32 = 0.0;
+        let start_time = Instant::now();
+        let mut since_last: f32;
         let mut since_start: f32 = 0.0;
         'play: loop {
             // Loop playing
             if self.p.time > self.p.max_time {
                 self.p.time -= self.p.max_time;
-                self.ogl.update(-self.p.max_time);
+                self.notes.update(-self.p.max_time * self.p.gravity);
             }
             if self.p.time < 0. {
                 self.p.time += self.p.max_time;
-                self.ogl.update(self.p.max_time);
+                self.notes.update(self.p.max_time * self.p.gravity);
             }
 
             since_last = start_time.elapsed().as_secs_f32() - since_start;
             since_start += since_last;
-            self.p.time += since_last * self.p.preview_speed;
+            let time_diff = since_last * self.p.preview_speed;
+            self.p.time += time_diff;
 
             self.gui.egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
             self.gui
                 .egui_ctx
                 .begin_frame(self.gui.egui_state.input.take());
 
-            self.ogl.vbo.set(&self.ogl.notes.vert);
-            self.ogl.vao.set();
-            self.ogl.ibo.set(&self.ogl.notes.ind);
+            self.vbo.set(&self.notes.vert);
+            self.vao.set();
+            self.ibo.set(&self.notes.ind);
             self.p.program.set_used();
             unsafe {
                 gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
-                gl::Uniform1f(self.p.u_time.id, self.ogl.frame as f32 / self.p.framerate);
+                gl::Uniform1f(self.p.u_time.id, self.p.time);
                 gl::Uniform3f(
                     self.p.u_note_left.id,
                     self.p.note_left.to_rgb()[0],
@@ -350,9 +423,9 @@ impl Pianorium {
                     self.p.particle_time.to_rgb()[2],
                 );
             }
-            self.ogl.update(since_last * self.p.gravity * self.p.preview_speed);
-            self.ogl.draw();
-            self.ogl.frame += 1;
+            self.notes.update(time_diff * self.p.gravity);
+            self.particles.update(time_diff * self.p.gravity, &self.notes.vert);
+            self.draw();
 
             self.draw_gui();
             rgb = self.p.bg.to_rgb();
@@ -360,33 +433,33 @@ impl Pianorium {
             let (egui_output, paint_cmds) = self.gui.egui_ctx.end_frame();
             self.gui
                 .egui_state
-                .process_output(&self.winsdl.window, &egui_output);
+                .process_output(&self.window, &egui_output);
             let paint_jobs = self.gui.egui_ctx.tessellate(paint_cmds);
             self.gui
                 .painter
                 .paint_jobs(None, paint_jobs, &self.gui.egui_ctx.font_image());
 
-            self.winsdl.window.gl_swap_window();
+            self.window.gl_swap_window();
 
             // if !egui_output.needs_repaint {
-            //     if let Some(event) = self.winsdl.event_pump.wait_event_timeout(5) {
+            //     if let Some(event) = self.event_pump.wait_event_timeout(5) {
             //         match event {
             //             Event::Quit { .. } => break 'play,
             //             _ => {
             //                 // Process input event
-            //                 self.gui.egui_state.process_input(&self.winsdl.window, event, &mut self.gui.painter);
+            //                 self.gui.egui_state.process_input(&self.window, event, &mut self.gui.painter);
             //             }
             //         }
             //     }
             // } else {
 
-            for event in self.winsdl.event_pump.poll_iter() {
+            for event in self.event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. } => break 'play,
                     _ => {
                         // Process input event
                         self.gui.egui_state.process_input(
-                            &self.winsdl.window,
+                            &self.window,
                             event,
                             &mut self.gui.painter,
                         );
@@ -401,9 +474,9 @@ impl Pianorium {
         self.gui
             .egui_ctx
             .begin_frame(self.gui.egui_state.input.take());
-        self.ogl.vbo.set(&self.ogl.notes.vert);
-        self.ogl.vao.set();
-        self.ogl.ibo.set(&self.ogl.notes.ind);
+        self.vbo.set(&self.notes.vert);
+        self.vao.set();
+        self.ibo.set(&self.notes.ind);
         self.p.program.set_used();
 
         self.draw_last();
@@ -415,24 +488,22 @@ impl Pianorium {
         let (egui_output, paint_cmds) = self.gui.egui_ctx.end_frame();
         self.gui
             .egui_state
-            .process_output(&self.winsdl.window, &egui_output);
+            .process_output(&self.window, &egui_output);
         let paint_jobs = self.gui.egui_ctx.tessellate(paint_cmds);
         self.gui
             .painter
             .paint_jobs(None, paint_jobs, &self.gui.egui_ctx.font_image());
 
-        self.winsdl.window.gl_swap_window();
+        self.window.gl_swap_window();
 
         Ok(())
     }
 
     /// Records the whole song in the background.
     pub fn full_mp4(&mut self) -> Result<(), String> {
-        self.ogl.to_zero(self.p.time);
-        self.p.time = 0.0;
-        self.ogl.frame = 0;
-        self.winsdl
-            .window
+        self.particles = Particles::new();
+        self.to_start();
+        self.window
             .subsystem()
             .gl_set_swap_interval(SwapInterval::Immediate)
             .unwrap();
@@ -447,11 +518,11 @@ impl Pianorium {
         let mut index = File::create(self.p.index_file.clone()).unwrap();
         println!("Rendering frames…");
 
-        self.ogl.vbo.set(&self.ogl.notes.vert);
-        self.ogl.vao.set();
-        self.ogl.ibo.set(&self.ogl.notes.ind);
+        self.vbo.set(&self.notes.vert);
+        self.vao.set();
+        self.ibo.set(&self.notes.ind);
         self.p.program.set_used();
-        self.p.adjust();
+        self.refresh();
 
         let tex = Texture::gen();
         tex.set(self.p.width as i32, self.p.height as i32);
@@ -532,13 +603,13 @@ impl Pianorium {
         }
 
         'record: loop {
-            for event in self.winsdl.event_pump.poll_iter() {
+            for event in self.event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. } => break 'record,
                     _ => {} // egui_state.process_input(&window, event, &mut painter);
                 }
             }
-            self.p.time+=1.0 / self.p.framerate * self.p.gravity;
+            self.p.time += 1.0 / self.p.framerate * self.p.gravity;
 
             // for _u in 0..self.p.cores {
             // let mut ogl = self.handles.remove(0).join().unwrap();
@@ -549,8 +620,13 @@ impl Pianorium {
                 gl::Uniform1f(self.p.u_time.id, self.p.time);
             }
 
-            self.ogl.update(1.0 / self.p.framerate * self.p.gravity);
-            self.ogl.draw();
+            let time = Instant::now();
+            self.notes.update(1.0 / self.p.framerate * self.p.gravity);
+            self.particles.update(1.0 / self.p.framerate * self.p.gravity, &self.notes.vert);
+            println!("Update: {:?}", time.elapsed());
+            let time = Instant::now();
+            self.draw();
+            println!("Draw: {:?}", time.elapsed());
 
             let time = Instant::now();
             self.read();
@@ -566,9 +642,8 @@ impl Pianorium {
 
             pbo.unmap();
 
-            self.ogl.frame += 1;
-            print!("{}", self.ogl.frame);
-            let name: String = format!("temp/{:010}.mp4", self.ogl.frame);
+            self.frame += 1;
+            let name: String = format!("pianorium_temp/{:010}.mp4", self.frame);
             let filename: &str = name.as_str();
             writeln!(index, "file {}", filename).unwrap();
 
@@ -588,25 +663,25 @@ impl Pianorium {
     pub fn full_png(&mut self) -> Result<(), String> {
         // let ogl = self.handles.remove(0).join().unwrap();
 
-        self.ogl
-            .to_zero(self.p.gravity / self.p.cores as f32 * self.ogl.frame as f32);
-        for y in self.ogl.notes.vert.iter_mut().skip(1).step_by(3) {
+        self.to_start();
+        self.particles = Particles::new();
+        for y in self.notes.vert.iter_mut().skip(1).step_by(3) {
             *y = (*y / self.p.max_time as f32 - 0.5) * 2.;
         }
 
         unsafe {
             gl::Uniform1f(self.p.u_time.id, 0.0);
         }
-        // unsafe { gl::Viewport(0, 0, (self.ogl.width/4) as i32, (self.ogl.height*3) as i32); } // with framebuffer change as well
-        self.ogl.draw();
+        // unsafe { gl::Viewport(0, 0, (self.width/4) as i32, (self.height*3) as i32); } // with framebuffer change as well
+        self.draw();
         self.read();
         let png_file = self.p.png_file.clone();
         // spawn(move ||{
         self.export_png(&png_file);
         println!("✨ Generated an image of the full song! ✨");
-        // self.renderer.ogl.frame += self.renderer.ogl.cores;
+        // self.renderer.frame += self.renderer.cores;
         // });
-        // self.renderer.ogl = OpenGLContext::new(self.p.width, self.p.height, self.p.framerate, self.p.cores, &self.p.midi_file);
+        // self.renderer = OpenGLContext::new(self.p.width, self.p.height, self.p.framerate, self.p.cores, &self.p.midi_file);
 
         // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
 
@@ -622,8 +697,8 @@ impl Pianorium {
 
                 ui.label("Restart preview: ");
                 if ui.add(egui::Button::new("      ")).clicked() {
-                    self.ogl.to_zero(self.p.time);
-                    self.p.time = 0.0;
+                    self.to_start();
+                    self.particles = Particles::new();
                 }
                 ui.end_row();
             });
@@ -651,7 +726,12 @@ impl Pianorium {
                 ui.end_row();
 
                 ui.label("Gravity:");
-                ui.add(egui::Slider::new(&mut self.p.gravity, 0.0..=3.0));
+                if ui
+                    .add(egui::Slider::new(&mut self.p.gravity, 0.3..=2.0))
+                    .changed()
+                {
+                    self.on_gravity_change();
+                };
                 ui.end_row();
             });
         });
@@ -752,22 +832,40 @@ impl Pianorium {
     fn draw_last(&mut self) {
         egui::Window::new("Pianorium").show(&self.gui.egui_ctx, |ui| {
             ui.label("Rendering started. This window will exit when the rendering finishes.");
-            ui.label("A progress bar will be added");
+            ui.label(
+                "You can minimize this window to let the rendering finish with the window hidden",
+            );
+            ui.label("A progress bar may be added in the future.");
         });
     }
 
+    pub fn refresh(&mut self) {
+        self.p.bytes = self.p.width * self.p.height * 4;
+        if self.p.samples > 1 {
+            self.sdl
+                .video()
+                .unwrap()
+                .gl_attr()
+                .set_multisample_samples(self.p.samples)
+        }
+    }
+
+    fn zero(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+
     fn setup() -> std::io::Result<()> {
-        let _ = remove_dir_all("temp");
-        create_dir("temp")?;
+        let _ = remove_dir_all("pianorium_temp");
+        create_dir("pianorium_temp")?;
         Ok(())
     }
 
     fn teardown() -> std::io::Result<()> {
-        remove_dir_all("temp")?;
-        let _ = remove_file("index.txt");
-        let _ = remove_file("ff_concat_mp4.log");
-        let _ = remove_file("ff_export_mp4.log");
-        let _ = remove_file("ff_export_png.log");
+        remove_dir_all("pianorium_temp")?;
+        let _ = remove_file("pianorium_index.txt");
+        let _ = remove_file("pianorium_ff_concat_mp4.log");
+        let _ = remove_file("pianorium_ff_export_mp4.log");
+        let _ = remove_file("pianorium_ff_export_png.log");
         Ok(())
     }
 
@@ -786,11 +884,11 @@ impl Pianorium {
     }
 
     pub fn export_mp4(&self, ptr: &[u8]) {
-        let name = format!("temp/{:010}.mp4", self.ogl.frame);
+        let name = format!("pianorium_temp/{:010}.mp4", self.frame);
         let filename = name.as_str();
 
         let mut ffmpeg = Command::new("ffmpeg")
-            .env("FFREPORT", "file=ff_export_mp4.log:level=56")
+            .env("FFREPORT", "file=pianorium_ff_export_mp4.log:level=56")
             .arg("-loglevel")
             .arg("0")
             .arg("-f")
@@ -821,7 +919,7 @@ impl Pianorium {
 
     pub fn export_png(&self, filename: &str) {
         let mut ffmpeg = Command::new("ffmpeg")
-            .env("FFREPORT", "file=ff_export_png.log:level=56")
+            .env("FFREPORT", "file=pianorium_ff_export_png.log:level=56")
             .arg("-loglevel")
             .arg("0")
             .arg("-f")
@@ -843,7 +941,7 @@ impl Pianorium {
             .expect("Failed to start ffmpeg process.");
 
         if let Some(ref mut stdin) = ffmpeg.stdin {
-            stdin.write_all(&self.ogl.data).unwrap();
+            stdin.write_all(&self.data).unwrap();
         }
     }
 
@@ -851,13 +949,13 @@ impl Pianorium {
         println!("Concatenating into one video…");
 
         Command::new("ffmpeg")
-            .env("FFREPORT", "file=ff_concat_mp4.log:level=56")
+            .env("FFREPORT", "file=pianorium_ff_concat_mp4.log:level=56")
             .arg("-loglevel")
             .arg("0")
             .arg("-f")
             .arg("concat")
             .arg("-i")
-            .arg("index.txt")
+            .arg("pianorium_index.txt")
             .arg("-c")
             .arg("copy")
             .arg("-movflags")
@@ -868,6 +966,81 @@ impl Pianorium {
             .unwrap();
 
         println!("✨ Fresh video generated! ✨");
+    }
+
+    pub fn draw(&mut self) {
+        unsafe {
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            self.draw_ol();
+            self.draw_notes();
+            self.draw_particles();
+        }
+    }
+
+    pub fn draw_ol(&mut self) {
+        unsafe {
+            self.vbo.set(&self.ol.vert);
+            self.ibo.set(&self.ol.ind);
+            gl::DrawElements(
+                gl::TRIANGLES,
+                self.ol.ind.len() as i32,
+                gl::UNSIGNED_INT,
+                0 as *const _,
+            );
+        }
+    }
+
+    pub fn draw_notes(&mut self) {
+        unsafe {
+            self.vbo.set(&self.notes.vert);
+            self.ibo.set(&self.notes.ind);
+            gl::DrawElements(
+                gl::TRIANGLES,
+                self.notes.ind.len() as i32,
+                gl::UNSIGNED_INT,
+                0 as *const _,
+            );
+        }
+    }
+
+    pub fn draw_particles(&mut self) {
+        unsafe {
+            self.vbo.set(&self.particles.vert);
+            self.ibo.set(&self.particles.ind);
+            gl::DrawElements(
+                gl::TRIANGLES,
+                self.particles.ind.len() as i32,
+                gl::UNSIGNED_INT,
+                0 as *const _,
+            );
+        }
+    }
+
+    #[inline(always)]
+    pub fn to_start(&mut self) {
+        self.notes.update(-self.p.time * self.p.gravity);
+        self.p.time = 0.;
+        self.frame = 0;
+    }
+    
+    #[inline(always)]
+    pub fn to_time(&mut self, time: f32) {
+        self.notes.update((self.p.time - time) * self.p.gravity);
+    }
+
+    #[inline(always)]
+    pub fn to_end(&mut self) {
+        self.notes.update((self.p.max_time-self.p.time) * self.p.gravity);
+        self.p.time = self.p.max_time;
+        self.frame = (self.p.max_time * self.p.framerate) as usize;
+    }
+
+    #[inline(always)]
+    pub fn on_gravity_change(&mut self) {
+        self.notes.notes_to_vertices( self.p.width as f32 / self.p.height as f32, self.p.gravity).unwrap();
+        self.notes.update(self.p.time * self.p.gravity);
+        self.p.latest_gravity = self.p.gravity;
     }
 }
 
@@ -909,18 +1082,7 @@ fn generate_raw_rgb_frame() -> Result<Vec<u8>, std::io::Error> {
 
 // use std::sync::{Arc, Mutex};
 
-pub struct OpenGLContext {
-    pub frame: usize,
-
-    pub data: Vec<u8>,
-
-    pub notes: Notes,
-    pub particles: Particles,
-
-    pub vbo: Vbo,
-    pub vao: Vao,
-    pub ibo: Ibo,
-}
+pub struct OpenGLContext {}
 
 // pub struct Shared { // Read-only
 //
@@ -988,53 +1150,15 @@ pub struct OpenGLContext {
 // }
 
 impl OpenGLContext {
-    /// Returns a ready-to-use context and the final frame number
-    pub fn new(
-        width: usize,
-        height: usize,
-        framerate: f32,
-        gravity: f32,
-        octave_line: f32,
-        midi_file: &str,
-    ) -> (Self, f32) {
-        let bytes: usize = width * height * 4;
-        let data: Vec<u8> = vec![0; bytes];
-
-        let frame: usize = 0;
-        let (notes, max_time) =
-            Notes::from_midi(width as f32 / height as f32, framerate, gravity, octave_line, midi_file).unwrap();
-
-        let particles: Particles = Particles::new();
-
-        let vbo: Vbo = Vbo::gen();
-        vbo.set(&notes.vert);
-        let vao: Vao = Vao::gen();
-        vao.set();
-        let ibo: Ibo = Ibo::gen();
-        ibo.set(&notes.ind);
-
-        unsafe {
-            gl::Viewport(0, 0, width as i32, height as i32);
-            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-        }
-
-        (
-            OpenGLContext {
-                frame,
-
-                data,
-
-                notes,
-                particles,
-
-                vbo,
-                vao,
-                ibo,
-            },
-            max_time,
-        )
-    }
+    // /// Returns a ready-to-use context and the final frame number
+    // pub fn new(
+    //     width: usize,
+    //     height: usize,
+    //     framerate: f32,
+    //     gravity: f32,
+    //     octave_line: f32,
+    //     midi_file: &str,
+    // ) -> (Self, f32) { }
 
     // pub fn fill_handles(width: usize, height: usize, framerate: f32, cores: usize, midi_file: &str) -> Result<Vec<std::thread::JoinHandle<OpenGLContext>>, &'static str> {
     //     let mut ogls: Vec<OpenGLContext> = vec![OpenGLContext::new(width, height, framerate, cores, midi_file)];
@@ -1049,54 +1173,62 @@ impl OpenGLContext {
     //     }
     //     Ok(handles)
     // }
+}
 
-    pub fn draw(&mut self) {
-        unsafe {
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+/// Vertical Octave Lines
+pub struct Ol {
+    halfspan: f32,
+    height: f32,
+    vert: Vec<f32>,
+    ind: Vec<u32>,
+}
 
-            self.draw_notes();
-            self.draw_particles();
+impl Ol {
+    /// Can be called before "notes_to_vertices" to display octave delimiters.
+    fn ol_to_vertices(&mut self) -> std::io::Result<()> {
+        for (i, x) in [
+            -24. / 26.,
+            -17. / 26.,
+            -10. / 26.,
+            -3. / 26.,
+            4. / 26.,
+            11. / 26.,
+            18. / 26.,
+            25. / 26.,
+        ]
+        .iter()
+        .enumerate()
+        {
+            let ver2: Vec<f32> = vec![
+                //        x                 y           color
+                x - self.halfspan,
+                -0.5,
+                0.7,
+                x + self.halfspan,
+                -0.5,
+                0.7,
+                x + self.halfspan,
+                self.height,
+                0.7,
+                x - self.halfspan,
+                self.height,
+                0.7,
+            ];
+            self.vert.extend(ver2);
+
+            let i2: u32 = i as u32;
+            let ind2: Vec<u32> = vec![
+                4 * i2,
+                4 * i2 + 2,
+                4 * i2 + 1,
+                4 * i2,
+                4 * i2 + 2,
+                4 * i2 + 3,
+            ];
+            self.ind.extend(ind2);
         }
-    }
 
-    pub fn draw_notes(&mut self) {
-        unsafe {
-            self.vbo.set(&self.notes.vert);
-            self.ibo.set(&self.notes.ind);
-            gl::DrawElements(
-                gl::TRIANGLES,
-                self.notes.ind.len() as i32,
-                gl::UNSIGNED_INT,
-                0 as *const _,
-            );
-        }
-    }
-
-    pub fn draw_particles(&mut self) {
-        unsafe {
-            self.vbo.set(&self.particles.vert);
-            self.ibo.set(&self.particles.ind);
-            gl::DrawElements(
-                gl::TRIANGLES,
-                self.particles.ind.len() as i32,
-                gl::UNSIGNED_INT,
-                0 as *const _,
-            );
-        }
-    }
-
-    pub fn update(&mut self, diff: f32) {
-        for y in self.notes.vert.iter_mut().skip(1).step_by(3) {
-            *y -= diff;
-        }
-
-        self.particles.update(diff, &self.notes.vert);
-    }
-
-    pub fn to_zero(&mut self, units: f32) {
-        self.frame = 0;
-        self.particles = Particles::new();
-        self.update(-units);
+        Ok(())
     }
 }
 
@@ -1230,66 +1362,73 @@ impl Notes {
             ind: vec![],
         };
 
-        let mut skip_ind: u32 = 0;
-        if octave_line>0. {
-            new.ol_to_vertices(octave_line, gravity, max_time).unwrap();
-            skip_ind = 48;
-        }
-
-        new.notes_to_vertices(wh_ratio, gravity, skip_ind).unwrap();
+        new.notes_to_vertices(wh_ratio, gravity).unwrap();
+        new.notes_to_indices().unwrap();
 
         Ok((new, max_time))
     }
 
-    pub fn ol_to_vertices(&mut self, octave_line: f32, gravity: f32, max_time: f32) -> std::io::Result<()> {
-        for x in [-24. / 26., -17. / 26., -10. / 26., -3. / 26., 4. / 26., 11. / 26., 18. / 26., 25. / 26.].iter() {
-            let ver2: Vec<f32> = vec![
-                //        x                 y           color
-                x-octave_line,                    - 0.5, 0.7,
-                x+octave_line,                    - 0.5, 0.7,
-                x+octave_line, max_time * gravity + 0.5, 0.7,
-                x-octave_line, max_time * gravity + 0.5, 0.7,
-            ];
-            self.vert.extend(ver2);
-
-            let len: u32 = self.vert.len() as u32;
-            let ind2: Vec<u32> = vec![
-                len, 2 + len, 1 + len,
-                len, 2 + len, 3 + len,
-            ];
-            self.ind.extend(ind2);
+    pub fn notes_to_vertices(&mut self, wh_ratio: f32, gravity: f32) -> std::io::Result<()> {
+        self.vert = vec![];
+        for n in self.notes.iter() {
+            self.vert.extend(vec![
+                //               x                      y            color
+                LAYOUT[n.note as usize - 21][0],
+                (gravity * n.start),
+                1.0,
+                LAYOUT[n.note as usize - 21][1],
+                (gravity * n.start),
+                1.0,
+                LAYOUT[n.note as usize - 21][1],
+                (gravity * n.end),
+                1.0,
+                LAYOUT[n.note as usize - 21][0],
+                (gravity * n.end),
+                1.0,
+                //               x                                           y                    color
+                LAYOUT[n.note as usize - 21][0] + 0.007,
+                ((n.start + 0.007 * wh_ratio) * gravity),
+                0.9,
+                LAYOUT[n.note as usize - 21][1] - 0.007,
+                ((n.start + 0.007 * wh_ratio) * gravity),
+                0.9,
+                LAYOUT[n.note as usize - 21][1] - 0.007,
+                ((n.end - 0.007 * wh_ratio) * gravity),
+                0.9,
+                LAYOUT[n.note as usize - 21][0] + 0.007,
+                ((n.end - 0.007 * wh_ratio) * gravity),
+                0.9,
+            ]);
         }
 
         Ok(())
     }
 
-    pub fn notes_to_vertices(&mut self, wh_ratio: f32, gravity: f32, skip_ind: u32) -> std::io::Result<()> {
-        for (i, n) in self.notes.iter().enumerate() {
-            let ver2: Vec<f32> = vec![
-                //               x                      y            color
-                LAYOUT[n.note as usize - 21][0], (gravity * n.start), 1.0,
-                LAYOUT[n.note as usize - 21][1], (gravity * n.start), 1.0,
-                LAYOUT[n.note as usize - 21][1], (gravity * n.end  ), 1.0,
-                LAYOUT[n.note as usize - 21][0], (gravity * n.end  ), 1.0,
-                //               x                                           y                    color
-                LAYOUT[n.note as usize - 21][0] + 0.007, ((n.start + 0.007 * wh_ratio) * gravity), 0.9,
-                LAYOUT[n.note as usize - 21][1] - 0.007, ((n.start + 0.007 * wh_ratio) * gravity), 0.9,
-                LAYOUT[n.note as usize - 21][1] - 0.007, ((n.end   - 0.007 * wh_ratio) * gravity), 0.9,
-                LAYOUT[n.note as usize - 21][0] + 0.007, ((n.end   - 0.007 * wh_ratio) * gravity), 0.9,
-            ];
-            self.vert.extend(ver2);
-
-            let i2: u32 = i as u32;
-            let ind2: Vec<u32> = vec![
-                0 + 8 * i2 + skip_ind, 2 + 8 * i2 + skip_ind, 1 + 8 * i2 + skip_ind,
-                0 + 8 * i2 + skip_ind, 2 + 8 * i2 + skip_ind, 3 + 8 * i2 + skip_ind,
-                4 + 8 * i2 + skip_ind, 6 + 8 * i2 + skip_ind, 5 + 8 * i2 + skip_ind,
-                4 + 8 * i2 + skip_ind, 6 + 8 * i2 + skip_ind, 7 + 8 * i2 + skip_ind,
-            ];
-            self.ind.extend(ind2);
+    pub fn notes_to_indices(&mut self) -> std::io::Result<()> {
+        self.ind = vec![];
+        for i in 0..self.notes.len() {
+            self.ind.extend(vec![
+                0 + 8 * i as u32,
+                2 + 8 * i as u32,
+                1 + 8 * i as u32,
+                0 + 8 * i as u32,
+                2 + 8 * i as u32,
+                3 + 8 * i as u32,
+                4 + 8 * i as u32,
+                6 + 8 * i as u32,
+                5 + 8 * i as u32,
+                4 + 8 * i as u32,
+                6 + 8 * i as u32,
+                7 + 8 * i as u32,
+            ]);
         }
-
         Ok(())
+    }
+
+    pub fn update(&mut self, diff: f32) {
+        for y in self.vert.iter_mut().skip(1).step_by(3) {
+            *y -= diff;
+        }
     }
 }
 
@@ -1320,7 +1459,9 @@ impl Fbo {
     }
 
     fn bind(&self) {
-        unsafe { gl::BindFramebuffer(gl::FRAMEBUFFER, self.id); }
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.id);
+        }
     }
 
     fn check(&self) {
@@ -1698,6 +1839,7 @@ pub struct Particles {
 }
 
 impl Particles {
+    #[inline(always)]
     pub fn new() -> Self {
         Particles {
             particles: vec![],
@@ -2061,61 +2203,18 @@ pub fn egui_set_theme(ctx: &egui::Context, theme: Theme) {
     });
 }
 
-pub struct Winsdl {
-    pub sdl: Sdl,
-    pub window: Window,
-    pub gl_context: GLContext,
-    pub gl: (),
-    pub event_pump: EventPump,
-}
-
-impl Winsdl {
-    pub fn new(width: usize, height: usize, samples: u8) -> Result<Self, &'static str> {
-        let sdl = sdl2::init().unwrap();
-        let video_subsystem = sdl.video().unwrap();
-
-        let gl_attr = video_subsystem.gl_attr();
-        gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-        gl_attr.set_context_version(3, 3);
-        gl_attr.set_double_buffer(true);
-        if samples > 1 {
-            gl_attr.set_multisample_samples(samples);
-        }
-
-        let window = video_subsystem
-            .window("Pianorium", width as u32, height as u32)
-            .resizable()
-            .opengl()
-            .build()
-            .unwrap();
-
-        let gl_context = window.gl_create_context().unwrap();
-        let gl = gl::load_with(|s| {
-            video_subsystem.gl_get_proc_address(s) as *const std::os::raw::c_void
-        });
-
-        window
-            .subsystem()
-            .gl_set_swap_interval(sdl2::video::SwapInterval::Immediate)
-            .unwrap();
-
-        if samples > 1 {
-            unsafe {
-                gl::Enable(gl::MULTISAMPLE);
-            }
-        }
-        unsafe {
-            gl::Enable(gl::BLEND);
-        }
-
-        let event_pump: sdl2::EventPump = sdl.event_pump().unwrap();
-
-        Ok(Winsdl {
-            sdl,
-            window,
-            gl_context,
-            gl,
-            event_pump,
-        })
-    }
-}
+// pub struct Winsdl {
+// }
+//
+// impl Winsdl {
+//     pub fn new(width: usize, height: usize, samples: u8) -> Result<Self, &'static str> {
+//
+//         Ok(Winsdl {
+//             sdl,
+//             window,
+//             gl_context,
+//             gl,
+//             event_pump,
+//         })
+//     }
+// }

@@ -9,3 +9,8 @@ egui_sdl2_gl = { version = "0.16.0", features = ["sdl2_bundled"] }
 midly = "*"
 num_cpus = "*"
 rand = "*"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"

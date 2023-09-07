@@ -20,6 +20,7 @@ pub struct Parameters {
     pub cores: usize,
     pub samples: u8,
     pub framerate: f32,
+    pub latest_gravity: f32,
     pub gravity: f32,
     pub preview_speed: f32,
     pub midi_file: String,
@@ -71,13 +72,14 @@ impl Default for Parameters {
         let framerate: f32 = 60.0;
         let time: f32 = 0.0;
         let max_time: f32 = 0.0;
+        let latest_gravity: f32 = 1.0;
         let gravity: f32 = 1.0;
         let preview_speed: f32 = 1.0;
         let midi_file: String = "test.mid".to_owned();
         let mp4_file: String = "output.mp4".to_owned();
         let png_file: String = "output.png".to_owned();
         let clear_dir: bool = false;
-        let index_file: String = "index.txt".to_owned();
+        let index_file: String = "pianorium_index.txt".to_owned();
         let octave_line: f32 = 0.0;
         let octave_line_color: Hsva = Hsva {
             h: 0.2,
@@ -253,6 +255,7 @@ impl Default for Parameters {
             samples,
             framerate,
             preview_speed,
+            latest_gravity,
             gravity,
             midi_file,
             mp4_file,
@@ -292,11 +295,5 @@ impl Default for Parameters {
             u_particle_bottom,
             u_particle_time,
         }
-    }
-}
-
-impl Parameters {
-    pub fn adjust(&mut self) {
-        self.bytes = self.width*self.height*4;
     }
 }
