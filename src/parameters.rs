@@ -1,5 +1,8 @@
 use crate::gl;
-use egui_sdl2_gl::egui::{color::Hsva, color_picker::Alpha};
+use egui_sdl2_gl::{
+    egui::{color::Hsva, color_picker::Alpha},
+    gl::types::GLint,
+};
 
 use crate::{create_program, Program, Uniform};
 
@@ -18,6 +21,7 @@ pub struct Parameters {
     pub width: usize,
     pub height: usize,
     pub cores: usize,
+    pub max_samples: u8,
     pub samples: u8,
     pub framerate: f32,
     pub latest_gravity: f32,
@@ -68,7 +72,17 @@ impl Default for Parameters {
         let bytes: usize = width * height * 4;
         let max_cores: usize = num_cpus::get();
         let cores: usize = max_cores;
-        let samples: u8 = 11;
+        let mut max_samples: GLint = 0;
+        let mut max_tex_samples: GLint = 0;
+        unsafe {
+            gl::GetIntegerv(gl::MAX_SAMPLES, &mut max_samples);
+            gl::GetIntegerv(gl::MAX_COLOR_TEXTURE_SAMPLES, &mut max_tex_samples);
+        }
+        let max_samples: u8 = max_samples as u8;
+        let samples: u8 = match max_samples > max_tex_samples as u8 {
+            true => max_tex_samples as u8,
+            false => max_samples,
+        };
         let framerate: f32 = 60.0;
         let time: f32 = 0.0;
         let max_time: f32 = 0.0;
@@ -252,6 +266,7 @@ impl Default for Parameters {
             width,
             height,
             cores,
+            max_samples,
             samples,
             framerate,
             preview_speed,

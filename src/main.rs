@@ -37,7 +37,7 @@ use std::{
     process::{Command, Stdio},
     ptr::null,
     slice::from_raw_parts,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use midly::{
@@ -242,7 +242,7 @@ impl Pianorium {
         gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
         gl_attr.set_context_version(3, 3);
         gl_attr.set_double_buffer(true);
-        gl_attr.set_multisample_samples(11);
+        gl_attr.set_multisample_samples(16);
         let window = video_subsystem
             .window("Pianorium", 800, 600)
             .resizable()
@@ -282,7 +282,6 @@ impl Pianorium {
         unsafe {
             gl::Viewport(0, 0, 800 as i32, 600 as i32);
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
-            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }
         println!("Create OpenGLContext: {:?}", time.elapsed());
 
@@ -626,7 +625,30 @@ impl Pianorium {
             println!("Draw: {:?}", time.elapsed());
 
             let time = Instant::now();
+            fbo.bind(gl::READ_FRAMEBUFFER, fbo.m);
             fbo.bind(gl::DRAW_FRAMEBUFFER, fbo.s);
+            unsafe {
+                gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+            }
+            unsafe {
+                gl::BlitFramebuffer(
+                    0,
+                    0,
+                    self.p.width as GLint,
+                    self.p.height as GLint,
+                    0,
+                    0,
+                    self.p.width as GLint,
+                    self.p.height as GLint,
+                    gl::COLOR_BUFFER_BIT,
+                    gl::NEAREST,
+                );
+            }
+            fbo.bind(gl::READ_FRAMEBUFFER, fbo.s);
+            fbo.bind(gl::DRAW_FRAMEBUFFER, 0);
+            unsafe {
+                gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+            }
             unsafe {
                 gl::BlitFramebuffer(
                     0,
@@ -642,14 +664,23 @@ impl Pianorium {
                 );
             }
             println!("Blit: {:?}", time.elapsed());
+            self.window.gl_swap_window();
+            println!("Swap window: {:?}", time.elapsed());
+            // std::thread::sleep(Duration::new(1, 0));
 
             let time = Instant::now();
-            fbo.bind(gl::READ_FRAMEBUFFER, fbo.s);
+            fbo.bind(gl::FRAMEBUFFER, fbo.s);
+            pbo.set(self.p.width * self.p.height * 4);
+
+            unsafe {
+                gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+            }
             self.read();
             println!("Read: {:?}", time.elapsed());
 
             let time = Instant::now();
             let ptr: *mut c_void = pbo.map();
+            println!("{:?}", ptr);
             println!("Map: {:?}", time.elapsed());
 
             let time = Instant::now();
@@ -722,8 +753,28 @@ impl Pianorium {
                 ui.end_row();
             });
         });
-        egui::Window::new("General").show(&self.gui.egui_ctx, |ui| {
-            egui::Grid::new("General").show(ui, |ui| {
+        egui::Window::new("Background").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Background").show(ui, |ui| {
+                ui.label("Color:");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.bg,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                ui.label("Image: ");
+                if ui.add(egui::Button::new("Find")).clicked() {
+                    // self.notes.update(-self.p.time * self.p.gravity);
+                    // self.p.time = 0.;
+                    // self.frame = 0;
+                    // self.particles = Particles::new();
+                }
+                ui.end_row();
+            });
+        });
+        egui::Window::new("General specification").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("General specification").show(ui, |ui| {
                 ui.label("Width:");
                 if ui
                     .add(egui::Slider::new(&mut self.p.width, 1..=7680))
@@ -748,7 +799,10 @@ impl Pianorium {
 
                 ui.label("Samples:");
                 if ui
-                    .add(egui::Slider::new(&mut self.p.samples, 1..=50))
+                    .add(egui::Slider::new(
+                        &mut self.p.samples,
+                        1..=self.p.max_samples,
+                    ))
                     .changed()
                 {
                     self.sdl
@@ -780,16 +834,8 @@ impl Pianorium {
                 ui.end_row();
             });
         });
-        egui::Window::new("Coloring").show(&self.gui.egui_ctx, |ui| {
-            egui::Grid::new("Coloring").show(ui, |ui| {
-                ui.label("Background color:");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.bg,
-                    self.p.alpha,
-                );
-                ui.end_row();
-
+        egui::Window::new("Notes").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Notes").show(ui, |ui| {
                 ui.label("Notes color - Left");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
@@ -910,7 +956,7 @@ impl Pianorium {
                 0,
                 self.p.width as i32,
                 self.p.height as i32,
-                gl::BGRA,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 null::<u8>() as *mut gl::types::GLvoid,
             );
@@ -930,7 +976,7 @@ impl Pianorium {
             .arg("-r")
             .arg(self.p.framerate.to_string())
             .arg("-pix_fmt")
-            .arg("bgra")
+            .arg("rgba")
             .arg("-s")
             .arg(format!("{}x{}", self.p.width, self.p.height))
             .arg("-i")
@@ -959,7 +1005,7 @@ impl Pianorium {
             .arg("-f")
             .arg("rawvideo")
             .arg("-pix_fmt")
-            .arg("bgra")
+            .arg("rgba")
             .arg("-s")
             .arg(format!("{}x{}", self.p.width, self.p.height))
             .arg("-i")
@@ -1012,6 +1058,7 @@ impl Pianorium {
         }
     }
 
+    #[inline(always)]
     pub fn draw_ol(&mut self) {
         unsafe {
             self.vbo.set(&self.ol.vert);
@@ -1025,6 +1072,7 @@ impl Pianorium {
         }
     }
 
+    #[inline(always)]
     pub fn draw_notes(&mut self) {
         unsafe {
             self.vbo.set(&self.notes.vert);
@@ -1038,6 +1086,7 @@ impl Pianorium {
         }
     }
 
+    #[inline(always)]
     pub fn draw_particles(&mut self) {
         unsafe {
             self.vbo.set(&self.particles.vert);
@@ -1070,6 +1119,11 @@ impl Pianorium {
         self.p.time = self.p.max_time;
         self.frame = (self.p.max_time * self.p.framerate) as usize;
     }
+}
+
+fn gl_err(step: &str) {
+    let error = unsafe { gl::GetError() };
+    println!("{}: gl err: {}", step, error);
 }
 
 // Simulated function to generate raw RGB frame data
@@ -1486,7 +1540,8 @@ impl Fbos {
         let mut s: GLuint = 0;
         let mut m: GLuint = 0;
         unsafe {
-            gl::GenFramebuffers(2, [s, m].as_mut_ptr());
+            gl::GenFramebuffers(1, &mut s);
+            gl::GenFramebuffers(1, &mut m);
         }
         Fbos { s, m }
     }
@@ -1513,6 +1568,8 @@ impl Fbos {
                 "🛑 Framebuffer wasn't successfully bound. Error {:#?}",
                 status
             );
+        } else {
+            println!("Framebuffer complete!");
         }
     }
 
@@ -1537,7 +1594,8 @@ impl Fbos {
 
     fn delete(&self) {
         unsafe {
-            gl::DeleteFramebuffers(2, [self.s, self.m].as_ptr());
+            gl::DeleteFramebuffers(1, &self.s);
+            gl::DeleteFramebuffers(1, &self.m);
         }
     }
 }
@@ -1674,10 +1732,11 @@ impl Drop for Textures {
 
 impl Textures {
     pub fn gen() -> Self {
-        let s: GLuint = 0; // Standard
-        let m: GLuint = 0; // Multisample
+        let mut s: GLuint = 0; // Standard
+        let mut m: GLuint = 0; // Multisample
         unsafe {
-            gl::GenTextures(2, [s, m].as_mut_ptr());
+            gl::GenTextures(1, &mut s);
+            gl::GenTextures(1, &mut m);
         }
         Textures { s, m }
     }
@@ -1694,29 +1753,19 @@ impl Textures {
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
-                gl::BGRA as i32,
+                gl::RGBA as i32,
                 width,
                 height,
                 0,
-                gl::BGRA,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 null(),
             );
 
-            gl::TexParameteri(
-                gl::TEXTURE_2D_MULTISAMPLE,
-                gl::TEXTURE_MIN_FILTER,
-                gl::LINEAR as i32,
-            );
-            gl::TexParameteri(
-                gl::TEXTURE_2D_MULTISAMPLE,
-                gl::TEXTURE_MAG_FILTER,
-                gl::LINEAR as i32,
-            );
             gl::TexImage2DMultisample(
                 gl::TEXTURE_2D_MULTISAMPLE,
                 samples as GLsizei,
-                gl::BGRA,
+                gl::RGBA,
                 width,
                 height,
                 0,
@@ -1740,7 +1789,8 @@ impl Textures {
 
     fn delete(&self) {
         unsafe {
-            gl::DeleteBuffers(2, [self.s, self.m].as_ptr());
+            gl::DeleteBuffers(1, &self.s);
+            gl::DeleteBuffers(1, &self.m);
         }
     }
 }
