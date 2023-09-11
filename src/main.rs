@@ -10,7 +10,9 @@ mod layout;
 use layout::{BLACK, LAYOUT};
 
 fn main() {
+    let time = Instant::now();
     let mut p = Pianorium::new().unwrap();
+    println!("Launched in {:?}", time.elapsed());
     p.play().unwrap();
     p.full_mp4().unwrap();
     p.full_png().unwrap();
@@ -30,6 +32,7 @@ use egui_sdl2_gl::{
 };
 
 use std::{
+    collections::VecDeque,
     f32::consts::PI,
     ffi::{c_void, CStr, CString},
     fs::{create_dir, remove_dir_all, remove_file, File},
@@ -37,7 +40,8 @@ use std::{
     process::{Command, Stdio},
     ptr::null,
     slice::from_raw_parts,
-    time::{Duration, Instant},
+    thread::{spawn, JoinHandle},
+    time::Instant,
 };
 
 use midly::{
@@ -51,9 +55,6 @@ use midly::{
 };
 
 use rand::{thread_rng, Rng};
-
-use std::collections::HashMap;
-use std::env;
 
 use ffmpeg::{
     codec, decoder, encoder, format, frame, log, media, picture, threading::Config, Dictionary,
@@ -265,13 +266,11 @@ impl Pianorium {
 
         let mut p: Parameters = Parameters::default();
 
-        let time = Instant::now();
         let data: Vec<u8> = vec![0; 800 * 600 * 4];
         let frame: usize = 0;
         let ol: Ol = Ol::create(p.octave_line).unwrap();
 
-        let (notes, max_time) =
-            Notes::from_midi(800 as f32 / 600 as f32, 60.0, 1.0, 0.0001, "test.mid").unwrap();
+        let (notes, max_time) = Notes::from_midi(800 as f32 / 600 as f32, 1.0, "test.mid").unwrap();
         let particles: Particles = Particles::new();
         let vbo: Vbo = Vbo::gen();
         vbo.set(&notes.vert);
@@ -283,7 +282,6 @@ impl Pianorium {
             gl::Viewport(0, 0, 800 as i32, 600 as i32);
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
         }
-        println!("Create OpenGLContext: {:?}", time.elapsed());
 
         p.max_time = max_time;
 
@@ -523,12 +521,9 @@ impl Pianorium {
         tex.set(self.p.width as i32, self.p.height as i32, self.p.samples);
         let fbo = Fbos::gen(); // Both standard and multisample
         fbo.set(tex);
-        let pbo = Pbo::gen();
-        pbo.set(self.p.bytes);
 
         unsafe {
-            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-            gl::Viewport(0, 0, self.p.width as i32, self.p.height as i32);
+            gl::Viewport(0, 0, self.p.width as i32, self.p.height as i32); // Needed ?
         }
 
         unsafe {
@@ -596,6 +591,14 @@ impl Pianorium {
             );
         }
 
+        let mut handles: VecDeque<JoinHandle<Vec<u8>>> = VecDeque::with_capacity(2);
+        for _ in 0..2 {
+            let bytes = self.p.bytes;
+            handles.push_back(spawn(move || Vec::<u8>::with_capacity(bytes)));
+        }
+        let pbo: Pbo = Pbo::gen();
+        let mut last_time = Instant::now();
+
         'record: loop {
             for event in self.event_pump.poll_iter() {
                 match event {
@@ -641,36 +644,19 @@ impl Pianorium {
                     self.p.width as GLint,
                     self.p.height as GLint,
                     gl::COLOR_BUFFER_BIT,
-                    gl::NEAREST,
-                );
-            }
-            fbo.bind(gl::READ_FRAMEBUFFER, fbo.s);
-            fbo.bind(gl::DRAW_FRAMEBUFFER, 0);
-            unsafe {
-                gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-            }
-            unsafe {
-                gl::BlitFramebuffer(
-                    0,
-                    0,
-                    self.p.width as GLint,
-                    self.p.height as GLint,
-                    0,
-                    0,
-                    self.p.width as GLint,
-                    self.p.height as GLint,
-                    gl::COLOR_BUFFER_BIT,
-                    gl::NEAREST,
+                    gl::LINEAR,
                 );
             }
             println!("Blit: {:?}", time.elapsed());
-            self.window.gl_swap_window();
-            println!("Swap window: {:?}", time.elapsed());
             // std::thread::sleep(Duration::new(1, 0));
 
             let time = Instant::now();
+            let mut data: Vec<u8> = handles.pop_front().unwrap().join().unwrap();
+            println!("Join handle: {:?}", time.elapsed());
+
+            let time = Instant::now();
             fbo.bind(gl::FRAMEBUFFER, fbo.s);
-            pbo.set(self.p.width * self.p.height * 4);
+            pbo.set(self.p.bytes, data.as_mut_ptr() as *const GLvoid);
 
             unsafe {
                 gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
@@ -679,13 +665,27 @@ impl Pianorium {
             println!("Read: {:?}", time.elapsed());
 
             let time = Instant::now();
-            let ptr: *mut c_void = pbo.map();
-            println!("{:?}", ptr);
+            pbo.map();
             println!("Map: {:?}", time.elapsed());
 
-            let time = Instant::now();
-            self.export_mp4(unsafe { from_raw_parts(ptr as *const u8, self.p.bytes) });
-            println!("Export: {:?}", time.elapsed());
+            let bytes = self.p.bytes;
+            let frame = self.frame;
+            let width = self.p.width;
+            let height = self.p.height;
+            let framerate = self.p.framerate;
+
+            handles.push_back(spawn(move || {
+                let time = Instant::now();
+                export_mp4(
+                    &data,
+                    format!("pianorium_temp/{:010}.mp4", frame),
+                    width,
+                    height,
+                    framerate,
+                );
+                println!("Export: {:?}", time.elapsed());
+                data
+            }));
 
             pbo.unmap();
 
@@ -694,6 +694,13 @@ impl Pianorium {
             let filename: &str = name.as_str();
             writeln!(index, "file {}", filename).unwrap();
 
+            println!(
+                "-------------------------- Frame {}: {}",
+                self.frame,
+                (Instant::now() - last_time).as_millis()
+            );
+            last_time = Instant::now();
+
             // self.handles.push(spawn(move ||{
             //     ogl.export_mp4();
             //     ogl
@@ -701,6 +708,11 @@ impl Pianorium {
 
             // }
         }
+
+        for _i in 0..2 {
+            handles.pop_front().unwrap().join().unwrap();
+        }
+
         Self::concat_mp4(&self.p.mp4_file.clone()); // ≃1/4 of runtime
 
         Ok(())
@@ -963,40 +975,6 @@ impl Pianorium {
         }
     }
 
-    pub fn export_mp4(&self, ptr: &[u8]) {
-        let name = format!("pianorium_temp/{:010}.mp4", self.frame);
-        let filename = name.as_str();
-
-        let mut ffmpeg = Command::new("ffmpeg")
-            .env("FFREPORT", "file=pianorium_ff_export_mp4.log:level=56")
-            .arg("-loglevel")
-            .arg("0")
-            .arg("-f")
-            .arg("rawvideo")
-            .arg("-r")
-            .arg(self.p.framerate.to_string())
-            .arg("-pix_fmt")
-            .arg("rgba")
-            .arg("-s")
-            .arg(format!("{}x{}", self.p.width, self.p.height))
-            .arg("-i")
-            .arg("-")
-            .arg("-vcodec")
-            .arg("libx264")
-            .arg("-crf")
-            .arg("23")
-            .arg("-vf")
-            .arg("vflip")
-            .arg(filename)
-            .stdin(Stdio::piped())
-            .spawn()
-            .unwrap();
-
-        if let Some(ref mut stdin) = ffmpeg.stdin {
-            stdin.write_all(ptr).unwrap();
-        }
-    }
-
     pub fn export_png(&self, filename: &str) {
         let mut ffmpeg = Command::new("ffmpeg")
             .env("FFREPORT", "file=pianorium_ff_export_png.log:level=56")
@@ -1118,6 +1096,37 @@ impl Pianorium {
             .update((self.p.max_time - self.p.time) * self.p.gravity);
         self.p.time = self.p.max_time;
         self.frame = (self.p.max_time * self.p.framerate) as usize;
+    }
+}
+
+fn export_mp4(ptr: &Vec<u8>, filename: String, width: usize, height: usize, framerate: f32) {
+    let mut ffmpeg = Command::new("ffmpeg")
+        .env("FFREPORT", "file=pianorium_ff_export_mp4.log:level=56")
+        .arg("-loglevel")
+        .arg("0")
+        .arg("-f")
+        .arg("rawvideo")
+        .arg("-r")
+        .arg(framerate.to_string())
+        .arg("-pix_fmt")
+        .arg("rgba")
+        .arg("-s")
+        .arg(format!("{}x{}", width, height))
+        .arg("-i")
+        .arg("-")
+        .arg("-vcodec")
+        .arg("libx264")
+        .arg("-crf")
+        .arg("0")
+        .arg("-vf")
+        .arg("vflip")
+        .arg(filename)
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    if let Some(ref mut stdin) = ffmpeg.stdin {
+        stdin.write_all(ptr).unwrap();
     }
 }
 
@@ -1340,9 +1349,7 @@ pub struct Notes {
 impl Notes {
     pub fn from_midi(
         wh_ratio: f32,
-        framerate: f32,
         gravity: f32,
-        octave_line: f32,
         midi_file: &str,
     ) -> std::io::Result<(Notes, f32)> {
         // Done Twice instead of just ….clone().iter_mut { +0.5 }
@@ -1675,9 +1682,9 @@ impl Pbo {
         Pbo { id }
     }
 
-    pub fn set(&self, bytes: usize) {
+    pub fn set(&self, bytes: usize, ptr: *const GLvoid) {
         self.bind();
-        self.data(bytes);
+        self.data(bytes, ptr);
     }
 
     fn bind(&self) {
@@ -1686,12 +1693,12 @@ impl Pbo {
         }
     }
 
-    fn data(&self, bytes: usize) {
+    fn data(&self, bytes: usize, ptr: *const GLvoid) {
         unsafe {
             gl::BufferData(
                 gl::PIXEL_PACK_BUFFER,
                 bytes as gl::types::GLsizeiptr,
-                null() as *const gl::types::GLvoid,
+                ptr,
                 gl::STREAM_READ,
             );
         }
