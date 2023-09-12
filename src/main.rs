@@ -58,9 +58,6 @@ fn main() {
 
     println!("Blackvideo in {:?}", time.elapsed());
 
-
-
-
     let time = Instant::now();
     let mut p = Pianorium::new().unwrap();
     println!("Launched in {:?}", time.elapsed());
@@ -255,7 +252,6 @@ impl Pianorium {
             .unwrap();
         unsafe {
             gl::Enable(gl::MULTISAMPLE);
-            gl::Enable(gl::BLEND);
         }
         let event_pump: sdl2::EventPump = sdl.event_pump().unwrap();
 
@@ -414,6 +410,11 @@ impl Pianorium {
             self.notes.update(time_diff * self.p.gravity);
             self.particles
                 .update(time_diff * self.p.gravity, &self.notes.vert);
+            unsafe { 
+                gl::Enable(gl::BLEND);
+                gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+                gl::BlendEquation(gl::FUNC_ADD); 
+            }
             self.draw();
 
             self.draw_gui();
@@ -516,6 +517,11 @@ impl Pianorium {
         tex.set(self.p.width as i32, self.p.height as i32, self.p.samples);
         let fbo = Fbos::gen(); // Both standard and multisample
         fbo.set(tex);
+        unsafe { 
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::BlendEquation(gl::FUNC_ADD); 
+        }
 
         unsafe {
             gl::Viewport(0, 0, self.p.width as i32, self.p.height as i32); // Needed ?
