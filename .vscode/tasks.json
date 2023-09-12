@@ -6,7 +6,6 @@
             "env": {
                 "RUST_BACKTRACE": "1",
                 "CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG": "true",
-                "FFMPEG_DIR": "${workspaceFolder}/ffmpeg"
             },
             "type": "cargo",
             "command": "build",
@@ -19,7 +18,6 @@
             "env": {
                 "RUST_BACKTRACE": "1",
                 "CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG": "true",
-                "FFMPEG_DIR": "${workspaceFolder}/ffmpeg"
             },
             "type": "cargo",
             "command": "build",
