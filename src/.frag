@@ -67,7 +67,7 @@ void main()
         */
     }
     else if (IN.Color == 0.8) {
-        Color = vec4((mix(u_particle_left, u_particle_right, (IN.Position.x+1.0)/2.0) * mix(u_particle_bottom, u_particle_top, (IN.Position.y+1.0)/2.0)), 0.8);
+        Color = vec4((mix(u_particle_left, u_particle_right, (IN.Position.x+1.0)/2.0) * mix(u_particle_bottom, u_particle_top, (IN.Position.y+1.0)/2.0)), 0.3);
     }
     else if (IN.Color == 0.7) {
         Color = vec4(u_ol_color, 1.0);

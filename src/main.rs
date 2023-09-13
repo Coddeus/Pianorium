@@ -410,10 +410,10 @@ impl Pianorium {
             self.notes.update(time_diff * self.p.gravity);
             self.particles
                 .update(time_diff * self.p.gravity, &self.notes.vert);
-            unsafe { 
+            unsafe {
                 gl::Enable(gl::BLEND);
                 gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-                gl::BlendEquation(gl::FUNC_ADD); 
+                gl::BlendEquation(gl::FUNC_ADD);
             }
             self.draw();
 
@@ -524,7 +524,14 @@ impl Pianorium {
         }
 
         unsafe {
-            gl::Viewport(0, 0, self.p.width as i32, self.p.height as i32); // Needed ?
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::BlendEquation(gl::FUNC_ADD);
+        }
+
+        unsafe {
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+            gl::Viewport(0, 0, self.p.width as i32, self.p.height as i32);
         }
 
         unsafe {
@@ -646,7 +653,7 @@ impl Pianorium {
                     self.p.width as GLint,
                     self.p.height as GLint,
                     gl::COLOR_BUFFER_BIT,
-                    gl::LINEAR,
+                    gl::NEAREST,
                 );
             }
             println!("Blit: {:?}", time.elapsed());
@@ -980,6 +987,39 @@ impl Pianorium {
         }
     }
 
+    pub fn export_mp4(&self, ptr: &[u8]) {
+        let name = format!("pianorium_temp/{:010}.mp4", self.frame);
+        let filename = name.as_str();
+
+        let mut ffmpeg = Command::new("ffmpeg")
+            .env("FFREPORT", "file=pianorium_ff_export_mp4.log:level=56")
+            .arg("-loglevel")
+            .arg("0")
+            .arg("-f")
+            .arg("rawvideo")
+            .arg("-r")
+            .arg(self.p.framerate.to_string())
+            .arg("-pix_fmt")
+            .arg("rgba")
+            .arg("-s")
+            .arg(format!("{}x{}", self.p.width, self.p.height))
+            .arg("-i")
+            .arg("-")
+            .arg("-vcodec")
+            .arg("libx264")
+            .arg("-crf")
+            .arg("0")
+            .arg("-vf")
+            .arg("vflip")
+            .arg(filename)
+            .stdin(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        if let Some(ref mut stdin) = ffmpeg.stdin {
+            stdin.write_all(ptr).unwrap();
+        }
+    }
     pub fn export_png(&self, filename: &str) {
         let mut ffmpeg = Command::new("ffmpeg")
             .env("FFREPORT", "file=pianorium_ff_export_png.log:level=56")
