@@ -9,3 +9,11 @@ rustflags = [
   "-C", "link-arg=-undefined",
   "-C", "link-arg=dynamic_lookup",
 ]
+
+[target.x86_64-pc-windows-gnu]
+linker = "gcc.exe"
+
+[env]
+FFMPEG_INCLUDE_DIR = { value = "ffmpeg/include", relative = true}
+FFMPEG_LIB_DIR = { value = "ffmpeg/lib", relative = true }
+FFMPEG_STATIC = "1"

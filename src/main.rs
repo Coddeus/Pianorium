@@ -1,5 +1,5 @@
+extern crate ac_ffmpeg as ffmpeg;
 extern crate egui_sdl2_gl;
-extern crate ffmpeg_next as ffmpeg;
 extern crate midly;
 extern crate num_cpus;
 extern crate rand;
@@ -10,7 +10,57 @@ mod layout;
 use layout::{BLACK, LAYOUT};
 
 fn main() {
+    let time = Instant::now();
+    let matches = App::new("encoding")
+        .arg(
+            Arg::with_name("output")
+                .required(true)
+                .takes_value(true)
+                .value_name("OUTPUT")
+                .help("Output file"),
+        )
+        .arg(
+            Arg::with_name("width")
+                .short("w")
+                .takes_value(true)
+                .value_name("WIDTH")
+                .help("width")
+                .default_value("640"),
+        )
+        .arg(
+            Arg::with_name("height")
+                .short("h")
+                .takes_value(true)
+                .value_name("HEIGHT")
+                .help("height")
+                .default_value("480"),
+        )
+        .arg(
+            Arg::with_name("duration")
+                .short("d")
+                .takes_value(true)
+                .value_name("DURATION")
+                .help("duration in seconds")
+                .default_value("10"),
+        )
+        .get_matches();
+
+    let output_filename = matches.value_of("output").unwrap();
+    let width = matches.value_of("width").unwrap().parse().unwrap();
+    let height = matches.value_of("height").unwrap().parse().unwrap();
+    let duration = matches.value_of("duration").unwrap().parse().unwrap();
+
+    let duration = Duration::from_secs_f32(duration);
+
+    if let Err(err) = encode_black_video(output_filename, width, height, duration) {
+        eprintln!("ERROR: {}", err);
+    }
+
+    println!("Blackvideo in {:?}", time.elapsed());
+
+    let time = Instant::now();
     let mut p = Pianorium::new().unwrap();
+    println!("Launched in {:?}", time.elapsed());
     p.play().unwrap();
     p.full_mp4().unwrap();
     p.full_png().unwrap();
@@ -30,6 +80,7 @@ use egui_sdl2_gl::{
 };
 
 use std::{
+    collections::VecDeque,
     f32::consts::PI,
     ffi::{c_void, CStr, CString},
     fs::{create_dir, remove_dir_all, remove_file, File},
@@ -37,7 +88,8 @@ use std::{
     process::{Command, Stdio},
     ptr::null,
     slice::from_raw_parts,
-    time::{Duration, Instant},
+    thread::{spawn, JoinHandle},
+    time::Instant,
 };
 
 use midly::{
@@ -51,153 +103,95 @@ use midly::{
 };
 
 use rand::{thread_rng, Rng};
+use std::time::Duration;
 
-use std::collections::HashMap;
-use std::env;
-
-use ffmpeg::{
-    codec, decoder, encoder, format, frame, log, media, picture, threading::Config, Dictionary,
-    Packet, Rational,
+use ac_ffmpeg::{
+    codec::{
+        video::{self, VideoEncoder, VideoFrameMut},
+        CodecParameters, Encoder,
+    },
+    format::{
+        io::IO,
+        muxer::{Muxer, OutputFormat},
+    },
+    time::{TimeBase, Timestamp},
+    Error,
 };
+use clap::{App, Arg};
 
-const DEFAULT_X264_OPTS: &str = "preset=medium";
+/// Open a given output file.
+fn open_output(path: &str, elementary_streams: &[CodecParameters]) -> Result<Muxer<File>, Error> {
+    let output_format = OutputFormat::guess_from_file_name(path)
+        .ok_or_else(|| Error::new(format!("unable to guess output format for file: {}", path)))?;
 
-pub struct Encoder {
-    // ost_index: usize,
-    // decoder: decoder::Video,
-    // encoder: encoder::video::Video,
-    // logging_enabled: bool,
-    // frame_count: usize,
-    // last_log_frame_count: usize,
-    // starting_time: Instant,
-    // last_log_time: Instant,
-}
+    let output = File::create(path)
+        .map_err(|err| Error::new(format!("unable to create output file {}: {}", path, err)))?;
 
-impl Encoder {
-    // fn new(
-    //     ist: &format::stream::Stream,
-    //     octx: &mut format::context::Output,
-    //     ost_index: usize,
-    //     x264_opts: Dictionary,
-    //     enable_logging: bool,
-    // ) -> Result<Self, ffmpeg::Error> {
-    //     let global_header = octx.format().flags().contains(format::Flags::GLOBAL_HEADER);
-    //     let decoder = ffmpeg::codec::context::Context::from_parameters(ist.parameters())?
-    //         .decoder()
-    //         .video()?;
-    //     let mut ost = octx.add_stream(encoder::find(codec::Id::H264))?;
-    //     let mut encoder = codec::context::Context::from_parameters(ost.parameters())?
-    //         .encoder()
-    //         .video()?;
-    //     encoder.set_height(decoder.height());
-    //     encoder.set_width(decoder.width());
-    //     encoder.set_aspect_ratio(decoder.aspect_ratio());
-    //     encoder.set_format(decoder.format());
-    //     encoder.set_frame_rate(decoder.frame_rate());
-    //     encoder.set_time_base(decoder.frame_rate().unwrap().invert());
-    //     if global_header {
-    //         encoder.set_flags(codec::Flags::GLOBAL_HEADER);
-    //     }
-    //
-    //     encoder
-    //         .open_with(x264_opts)
-    //         .expect("error opening libx264 encoder with supplied settings");
-    //     encoder = codec::context::Context::from_parameters(ost.parameters())?
-    //         .encoder()
-    //         .video()?;
-    //     ost.set_parameters(&encoder);
-    //     Ok(Self {
-    //         ost_index,
-    //         decoder,
-    //         encoder: codec::context::Context::from_parameters(ost.parameters())?
-    //             .encoder()
-    //             .video()?,
-    //         logging_enabled: enable_logging,
-    //         frame_count: 0,
-    //         last_log_frame_count: 0,
-    //         starting_time: Instant::now(),
-    //         last_log_time: Instant::now(),
-    //     })
-    // }
-    //
-    // fn send_packet_to_decoder(&mut self, packet: &Packet) {
-    //     self.decoder.send_packet(packet).unwrap();
-    // }
-    //
-    // fn send_eof_to_decoder(&mut self) {
-    //     self.decoder.send_eof().unwrap();
-    // }
-    //
-    // fn receive_and_process_decoded_frames(
-    //     &mut self,
-    //     octx: &mut format::context::Output,
-    //     ost_time_base: Rational,
-    // ) {
-    //     let mut frame = frame::Video::empty();
-    //     while self.decoder.receive_frame(&mut frame).is_ok() {
-    //         self.frame_count += 1;
-    //         let timestamp = frame.timestamp();
-    //         self.log_progress(f64::from(
-    //             Rational(timestamp.unwrap_or(0) as i32, 1) * self.decoder.time_base(),
-    //         ));
-    //         frame.set_pts(timestamp);
-    //         frame.set_kind(picture::Type::None);
-    //         self.send_frame_to_encoder(&frame);
-    //         self.receive_and_process_encoded_packets(octx, ost_time_base);
-    //     }
-    // }
-    //
-    // fn send_frame_to_encoder(&mut self, frame: &frame::Video) {
-    //     self.encoder.send_frame(frame).unwrap();
-    // }
-    //
-    // fn send_eof_to_encoder(&mut self) {
-    //     self.encoder.send_eof().unwrap();
-    // }
-    //
-    // fn receive_and_process_encoded_packets(
-    //     &mut self,
-    //     octx: &mut format::context::Output,
-    //     ost_time_base: Rational,
-    // ) {
-    //     let mut encoded = Packet::empty();
-    //     while self.encoder.receive_packet(&mut encoded).is_ok() {
-    //         encoded.set_stream(self.ost_index);
-    //         encoded.rescale_ts(self.decoder.time_base(), ost_time_base);
-    //         encoded.write_interleaved(octx).unwrap();
-    //     }
-    // }
-    //
-    // fn log_progress(&mut self, timestamp: f64) {
-    //     if !self.logging_enabled
-    //         || (self.frame_count - self.last_log_frame_count < 100
-    //             && self.last_log_time.elapsed().as_secs_f64() < 1.0)
-    //     {
-    //         return;
-    //     }
-    //     eprintln!(
-    //         "time elpased: \t{:8.2}\tframe count: {:8}\ttimestamp: {:8.2}",
-    //         self.starting_time.elapsed().as_secs_f64(),
-    //         self.frame_count,
-    //         timestamp
-    //     );
-    //     self.last_log_frame_count = self.frame_count;
-    //     self.last_log_time = Instant::now();
-    // }
-}
+    let io = IO::from_seekable_write_stream(output);
 
-fn parse_opts<'a>(s: String) -> Option<Dictionary<'a>> {
-    let mut dict = Dictionary::new();
-    for keyval in s.split_terminator(',') {
-        let tokens: Vec<&str> = keyval.split('=').collect();
-        match tokens[..] {
-            [key, val] => dict.set(key, val),
-            _ => return None,
-        }
+    let mut muxer_builder = Muxer::builder();
+
+    for codec_parameters in elementary_streams {
+        muxer_builder.add_stream(codec_parameters)?;
     }
-    Some(dict)
+
+    muxer_builder.build(io, output_format)
 }
 
+/// Create h264 encoded black video file of a given length and with a given
+/// resolution.
+fn encode_black_video(
+    output: &str,
+    width: u32,
+    height: u32,
+    duration: Duration,
+) -> Result<(), Error> {
+    // note: it is 1/fps
+    let time_base = TimeBase::new(1, 25);
+
+    let pixel_format = video::frame::get_pixel_format("yuv420p");
+
+    // create a black video frame with a given resolution
+    let frame = VideoFrameMut::black(pixel_format, width as _, height as _)
+        .with_time_base(time_base)
+        .freeze();
+
+    let mut encoder = VideoEncoder::builder("libx264")?
+        .pixel_format(pixel_format)
+        .width(width as _)
+        .height(height as _)
+        .time_base(time_base)
+        .build()?;
+
+    let codec_parameters = encoder.codec_parameters().into();
+
+    let mut muxer = open_output(output, &[codec_parameters])?;
+
+    let mut frame_idx = 0;
+    let mut frame_timestamp = Timestamp::new(frame_idx, time_base);
+    let max_timestamp = Timestamp::from_millis(0) + duration;
+
+    while frame_timestamp < max_timestamp {
+        let cloned_frame = frame.clone().with_pts(frame_timestamp);
+
+        encoder.push(cloned_frame)?;
+
+        while let Some(packet) = encoder.take()? {
+            muxer.push(packet.with_stream_index(0))?;
+        }
+
+        frame_idx += 1;
+        frame_timestamp = Timestamp::new(frame_idx, time_base);
+    }
+
+    encoder.flush()?;
+
+    while let Some(packet) = encoder.take()? {
+        muxer.push(packet.with_stream_index(0))?;
+    }
+
+    muxer.flush()
+}
 /// The full application.
 pub struct Pianorium {
     /// The rendering parameters, which can be changed through the GUI.
@@ -220,9 +214,8 @@ pub struct Pianorium {
     pub vbo: Vbo,
     pub vao: Vao,
     pub ibo: Ibo,
-
     // pub frames: Vec<Vec<u8>>,
-    pub encoder: Encoder,
+    // pub encoder: Encoder,
 }
 
 impl Drop for Pianorium {
@@ -264,13 +257,11 @@ impl Pianorium {
 
         let mut p: Parameters = Parameters::default();
 
-        let time = Instant::now();
         let data: Vec<u8> = vec![0; 800 * 600 * 4];
         let frame: usize = 0;
         let ol: Ol = Ol::create(p.octave_line).unwrap();
 
-        let (notes, max_time) =
-            Notes::from_midi(800 as f32 / 600 as f32, 60.0, 1.0, 0.0001, "test.mid").unwrap();
+        let (notes, max_time) = Notes::from_midi(800 as f32 / 600 as f32, 1.0, "test.mid").unwrap();
         let particles: Particles = Particles::new();
         let vbo: Vbo = Vbo::gen();
         vbo.set(&notes.vert);
@@ -282,14 +273,13 @@ impl Pianorium {
             gl::Viewport(0, 0, 800 as i32, 600 as i32);
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
         }
-        println!("Create OpenGLContext: {:?}", time.elapsed());
 
         p.max_time = max_time;
 
         let gui: Gui = Gui::new(&window).unwrap();
         // HANDLES FOR OPENGL
         // let handles: Vec<JoinHandle<OpenGLContext>> = fill_handles(p.width, p.height, p.framerate, &p.midi_file).unwrap();
-        let encoder: Encoder = Encoder {};
+        // let encoder: Encoder = Encoder {};
 
         Self::setup().unwrap();
 
@@ -309,7 +299,7 @@ impl Pianorium {
             vbo,
             vao,
             ibo,
-            encoder,
+            // encoder,
         })
     }
 
@@ -527,8 +517,11 @@ impl Pianorium {
         tex.set(self.p.width as i32, self.p.height as i32, self.p.samples);
         let fbo = Fbos::gen(); // Both standard and multisample
         fbo.set(tex);
-        let pbo = Pbo::gen();
-        pbo.set(self.p.bytes);
+        unsafe { 
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::BlendEquation(gl::FUNC_ADD); 
+        }
 
         unsafe {
             gl::Enable(gl::BLEND);
@@ -606,6 +599,14 @@ impl Pianorium {
             );
         }
 
+        let mut handles: VecDeque<JoinHandle<Vec<u8>>> = VecDeque::with_capacity(2);
+        for _ in 0..2 {
+            let bytes = self.p.bytes;
+            handles.push_back(spawn(move || Vec::<u8>::with_capacity(bytes)));
+        }
+        let pbo: Pbo = Pbo::gen();
+        let mut last_time = Instant::now();
+
         'record: loop {
             for event in self.event_pump.poll_iter() {
                 match event {
@@ -613,6 +614,7 @@ impl Pianorium {
                     _ => {} // egui_state.process_input(&window, event, &mut painter);
                 }
             }
+            let time = Instant::now();
             self.p.time += 1.0 / self.p.framerate * self.p.gravity;
 
             // for _u in 0..self.p.cores {
@@ -624,11 +626,11 @@ impl Pianorium {
                 gl::Uniform1f(self.p.u_time.id, self.p.time);
             }
 
-            let time = Instant::now();
             self.notes.update(1.0 / self.p.framerate * self.p.gravity);
             self.particles
                 .update(1.0 / self.p.framerate * self.p.gravity, &self.notes.vert);
             println!("Update: {:?}", time.elapsed());
+
             let time = Instant::now();
             fbo.bind(gl::FRAMEBUFFER, fbo.m);
             self.draw();
@@ -658,9 +660,12 @@ impl Pianorium {
             // std::thread::sleep(Duration::new(1, 0));
 
             let time = Instant::now();
-            fbo.bind(gl::FRAMEBUFFER, fbo.s);
-            pbo.set(self.p.width * self.p.height * 4);
+            let mut data: Vec<u8> = handles.pop_front().unwrap().join().unwrap();
+            println!("Join handle: {:?}", time.elapsed());
 
+            let time = Instant::now();
+            fbo.bind(gl::FRAMEBUFFER, fbo.s);
+            pbo.set(self.p.bytes, data.as_mut_ptr() as *const GLvoid);
             unsafe {
                 gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
             }
@@ -668,20 +673,45 @@ impl Pianorium {
             println!("Read: {:?}", time.elapsed());
 
             let time = Instant::now();
-            let ptr: *mut c_void = pbo.map();
-            println!("{:?}", ptr);
+            pbo.map();
             println!("Map: {:?}", time.elapsed());
 
             let time = Instant::now();
-            self.export_mp4(unsafe { from_raw_parts(ptr as *const u8, self.p.bytes) });
-            println!("Export: {:?}", time.elapsed());
+            let bytes = self.p.bytes;
+            let frame = self.frame;
+            let width = self.p.width;
+            let height = self.p.height;
+            let framerate = self.p.framerate;
 
+            handles.push_back(spawn(move || {
+                let time = Instant::now();
+                export_mp4(
+                    &data,
+                    format!("pianorium_temp/{:010}.mp4", frame),
+                    width,
+                    height,
+                    framerate,
+                );
+                println!("Export: {:?}", time.elapsed());
+                data
+            }));
+            println!("Spawn thread: {:?}", time.elapsed());
+
+            let time = Instant::now();
             pbo.unmap();
 
             self.frame += 1;
             let name: String = format!("pianorium_temp/{:010}.mp4", self.frame);
             let filename: &str = name.as_str();
             writeln!(index, "file {}", filename).unwrap();
+            println!("Unmap & Update frame: {:?}", time.elapsed());
+
+            println!(
+                "-------------------------- Frame {}: {}",
+                self.frame,
+                (Instant::now() - last_time).as_millis()
+            );
+            last_time = Instant::now();
 
             // self.handles.push(spawn(move ||{
             //     ogl.export_mp4();
@@ -690,6 +720,11 @@ impl Pianorium {
 
             // }
         }
+
+        for _i in 0..2 {
+            handles.pop_front().unwrap().join().unwrap();
+        }
+
         Self::concat_mp4(&self.p.mp4_file.clone()); // ≃1/4 of runtime
 
         Ok(())
@@ -985,7 +1020,6 @@ impl Pianorium {
             stdin.write_all(ptr).unwrap();
         }
     }
-
     pub fn export_png(&self, filename: &str) {
         let mut ffmpeg = Command::new("ffmpeg")
             .env("FFREPORT", "file=pianorium_ff_export_png.log:level=56")
@@ -1107,6 +1141,37 @@ impl Pianorium {
             .update((self.p.max_time - self.p.time) * self.p.gravity);
         self.p.time = self.p.max_time;
         self.frame = (self.p.max_time * self.p.framerate) as usize;
+    }
+}
+
+fn export_mp4(ptr: &Vec<u8>, filename: String, width: usize, height: usize, framerate: f32) {
+    let mut ffmpeg = Command::new("ffmpeg")
+        .env("FFREPORT", "file=pianorium_ff_export_mp4.log:level=56")
+        .arg("-loglevel")
+        .arg("0")
+        .arg("-f")
+        .arg("rawvideo")
+        .arg("-r")
+        .arg(framerate.to_string())
+        .arg("-pix_fmt")
+        .arg("rgba")
+        .arg("-s")
+        .arg(format!("{}x{}", width, height))
+        .arg("-i")
+        .arg("-")
+        .arg("-vcodec")
+        .arg("libx264")
+        .arg("-crf")
+        .arg("0")
+        .arg("-vf")
+        .arg("vflip")
+        .arg(filename)
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    if let Some(ref mut stdin) = ffmpeg.stdin {
+        stdin.write_all(ptr).unwrap();
     }
 }
 
@@ -1329,9 +1394,7 @@ pub struct Notes {
 impl Notes {
     pub fn from_midi(
         wh_ratio: f32,
-        framerate: f32,
         gravity: f32,
-        octave_line: f32,
         midi_file: &str,
     ) -> std::io::Result<(Notes, f32)> {
         // Done Twice instead of just ….clone().iter_mut { +0.5 }
@@ -1664,9 +1727,9 @@ impl Pbo {
         Pbo { id }
     }
 
-    pub fn set(&self, bytes: usize) {
+    pub fn set(&self, bytes: usize, ptr: *const GLvoid) {
         self.bind();
-        self.data(bytes);
+        self.data(bytes, ptr);
     }
 
     fn bind(&self) {
@@ -1675,12 +1738,12 @@ impl Pbo {
         }
     }
 
-    fn data(&self, bytes: usize) {
+    fn data(&self, bytes: usize, ptr: *const GLvoid) {
         unsafe {
             gl::BufferData(
                 gl::PIXEL_PACK_BUFFER,
                 bytes as gl::types::GLsizeiptr,
-                null() as *const gl::types::GLvoid,
+                ptr,
                 gl::STREAM_READ,
             );
         }

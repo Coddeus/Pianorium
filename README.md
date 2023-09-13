@@ -47,13 +47,14 @@ With:
 ## Contributing
 Found a bug, have a feature idea? Issues are welcome to help the development of this project!
 
-To build the codebase, you will need: 
-- [Rust installed](https://www.rust-lang.org/tools/install)
-- [[guide]](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building) FFmpeg manually installed to be statically linked with the ffmpeg-next crate
-- [[guide]](https://github.com/Rust-SDL2/rust-sdl2) SDL2 manually installed to be statically linked with the sdl2 crate
+To build the codebase locally, you will need: 
+- this repository to be cloned,
+- [Rust installed](https://www.rust-lang.org/tools/install),
+- [[guide]](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building) FFmpeg installed to be linked with the ac-ffmpeg crate,
+- [[guide]](https://github.com/Rust-SDL2/rust-sdl2) SDL2 installed to be linked with the sdl2 crate,
 
 Debugging (F5) should work on VSCode after installing these libraries.  
-For other IDEs, you might want to rewrite the .vscode/ behaviour if you don't want to rewrite `cargo run -- 800 600 60.0 6 ./test.mid ./output.mp4 ./output.png false` every build.
+For other IDEs, you might want to rewrite the .vscode/ debug behaviour.
 
 ## Credits
 If you use this software (e.g. for videos), please consider crediting to it. For example:  
