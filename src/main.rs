@@ -259,7 +259,6 @@ impl Pianorium {
             .unwrap();
         unsafe {
             gl::Enable(gl::MULTISAMPLE);
-            gl::Enable(gl::BLEND);
         }
         let event_pump: sdl2::EventPump = sdl.event_pump().unwrap();
 
@@ -421,6 +420,11 @@ impl Pianorium {
             self.notes.update(time_diff * self.p.gravity);
             self.particles
                 .update(time_diff * self.p.gravity, &self.notes.vert);
+            unsafe {
+                gl::Enable(gl::BLEND);
+                gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+                gl::BlendEquation(gl::FUNC_ADD);
+            }
             self.draw();
 
             self.draw_gui();
@@ -525,6 +529,12 @@ impl Pianorium {
         fbo.set(tex);
         let pbo = Pbo::gen();
         pbo.set(self.p.bytes);
+
+        unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+            gl::BlendEquation(gl::FUNC_ADD);
+        }
 
         unsafe {
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
@@ -644,28 +654,7 @@ impl Pianorium {
                     gl::NEAREST,
                 );
             }
-            fbo.bind(gl::READ_FRAMEBUFFER, fbo.s);
-            fbo.bind(gl::DRAW_FRAMEBUFFER, 0);
-            unsafe {
-                gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-            }
-            unsafe {
-                gl::BlitFramebuffer(
-                    0,
-                    0,
-                    self.p.width as GLint,
-                    self.p.height as GLint,
-                    0,
-                    0,
-                    self.p.width as GLint,
-                    self.p.height as GLint,
-                    gl::COLOR_BUFFER_BIT,
-                    gl::NEAREST,
-                );
-            }
             println!("Blit: {:?}", time.elapsed());
-            self.window.gl_swap_window();
-            println!("Swap window: {:?}", time.elapsed());
             // std::thread::sleep(Duration::new(1, 0));
 
             let time = Instant::now();
@@ -984,7 +973,7 @@ impl Pianorium {
             .arg("-vcodec")
             .arg("libx264")
             .arg("-crf")
-            .arg("23")
+            .arg("0")
             .arg("-vf")
             .arg("vflip")
             .arg(filename)

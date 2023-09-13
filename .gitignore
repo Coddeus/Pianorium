@@ -33,3 +33,4 @@ vcpkg_installed
 # Deps
 ffmpeg
 SDL2-2.28.2
+*.dll
