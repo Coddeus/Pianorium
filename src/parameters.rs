@@ -11,7 +11,7 @@ use crate::{create_program, Program, Uniform};
 // pub border_radius: u8,
 // pub bgimg_file: &'static str,
 // pub vertical_img_divide: u8,
-/// Rendering parameters
+/// The rendering parameters
 pub struct Parameters {
     pub bytes: usize,
     pub max_cores: usize,

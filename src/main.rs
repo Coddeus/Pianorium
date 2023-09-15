@@ -1,4 +1,4 @@
-// RELEASE #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
 extern crate egui_sdl2_gl;
 extern crate ffmpeg_sys_next as sys;
@@ -6,13 +6,14 @@ extern crate midly;
 extern crate num_cpus;
 extern crate rand;
 
-mod parameters;
-use parameters::Parameters;
-mod layout;
-use layout::{BLACK, LAYOUT};
-mod encoder;
-use encoder::Encoder;
+pub mod parameters;
+pub use parameters::Parameters;
+pub mod layout;
+pub use layout::{BLACK, LAYOUT};
+pub mod encoder;
+pub use encoder::Encoder;
 
+/// Creates a new `Pianorium`, plays the chosen song, renders it, and ends.
 fn main() {
     let mut p = Pianorium::new().unwrap();
     p.play().unwrap();
@@ -331,7 +332,7 @@ impl Pianorium {
         Ok(())
     }
 
-    /// Records the whole song in the background.
+    /// Renders the whole song to an output file, in the background.
     pub fn full_mp4(&mut self) -> Result<(), String> {
         self.particles = Particles::new();
         self.to_start();
@@ -344,6 +345,7 @@ impl Pianorium {
             self.p.width as i32,
             self.p.height as i32,
             self.p.framerate as f64,
+            1.max((self.p.max_cores - 2) as u8),
         );
         #[cfg(debug_assertions)]
         println!("\nInitialized the encoder\n");
@@ -352,15 +354,12 @@ impl Pianorium {
         self.vao.set();
         self.ibo.set(&self.notes.ind);
         self.p.program.set_used();
-        
-        
+
         let tex = Textures::gen(); // Both standard and multisample
         tex.set(self.p.width as i32, self.p.height as i32, self.p.samples);
         let fbo = Fbos::gen(); // Both standard and multisample
         fbo.set(tex);
-        #[cfg(debug_assertions)]
-        println!("\nHEEEEREEE!!!\n");
-        
+
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -371,7 +370,7 @@ impl Pianorium {
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
             gl::Viewport(0, 0, self.p.width as i32, self.p.height as i32);
         }
-        
+
         unsafe {
             let rgb: [f32; 3] = self.p.bg.to_rgb();
             gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
@@ -436,27 +435,126 @@ impl Pianorium {
                 self.p.particle_time.to_rgb()[2],
             );
         }
-
-        let mut data: (Vec<u8>, Vec<u8>) = (Vec::with_capacity(self.p.bytes), Vec::with_capacity(self.p.bytes));
-        let data_ptr: (*mut u8, *mut u8) = (data.0.as_mut_ptr(), data.1.as_mut_ptr());
+        #[cfg(debug_assertions)]
+        println!("\nHEEEEREEE!!!\n");
 
         let pbo = Pbo::gen();
-        pbo.set(self.p.bytes, data_ptr.0.cast());
+
+        unsafe {
+            gl::Uniform1f(self.p.u_time.id, self.p.time);
+        }
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+
+        #[cfg(debug_assertions)]
+        println!("Update: {:?}", time.elapsed());
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+
+        fbo.bind(gl::FRAMEBUFFER, fbo.m);
+        self.draw();
+
+        #[cfg(debug_assertions)]
+        println!("Draw: {:?}", time.elapsed());
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+
+        fbo.bind(gl::READ_FRAMEBUFFER, fbo.m);
+        fbo.bind(gl::DRAW_FRAMEBUFFER, fbo.s);
+        unsafe {
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        }
+        unsafe {
+            gl::BlitFramebuffer(
+                0,
+                0,
+                self.p.width as GLint,
+                self.p.height as GLint,
+                0,
+                0,
+                self.p.width as GLint,
+                self.p.height as GLint,
+                gl::COLOR_BUFFER_BIT,
+                gl::NEAREST,
+            );
+        }
+
+        #[cfg(debug_assertions)]
+        println!("Blit: {:?}", time.elapsed());
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+
+        assert!( unsafe { sys::av_buffer_make_writable(&mut encoder.frame_rgb.buf[0]) } >= 0, "Can't write to frame_rgb.buf!");
+        #[cfg(debug_assertions)]
+        println!("encoder.frame_rgb.buf[0]: {:?}", encoder.frame_rgb.buf[0]);
+        let rgb_buffer = unsafe { (*encoder.frame_rgb.buf[0]).data };
+
+        fbo.bind(gl::FRAMEBUFFER, fbo.s);
+        pbo.set(self.p.width * self.p.height * 3, rgb_buffer.cast());
+        unsafe {
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        }
+        self.read();
+
+        #[cfg(debug_assertions)]
+        println!("Read: {:?}", time.elapsed());
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+
+        let ptr: *mut c_void = pbo.map();
+
+        #[cfg(debug_assertions)]
+        println!("Map ptr: {:?}", ptr);
+        #[cfg(debug_assertions)]
+        println!("Map: {:?}", time.elapsed());
+
+        pbo.unmap();
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+        encoder.convert(self.frame_count as i64, self.p.height as i32);
+        println!("encoder.frame_rgb.buf[0]: {:?}", encoder.frame_rgb.buf[0]);
+        println!("encoder.frame_rgb.buf[1]: {:?}", encoder.frame_rgb.buf[1]);
+        println!("encoder.frame_rgb.buf[2]: {:?}", encoder.frame_rgb.buf[2]);
+        println!("encoder.frame_yuv.buf[0]: {:?}", encoder.frame_yuv.buf[0]);
+        println!("encoder.frame_yuv.buf[1]: {:?}", encoder.frame_yuv.buf[1]);
+        println!("encoder.frame_yuv.buf[2]: {:?}", encoder.frame_yuv.buf[2]);
+        #[cfg(debug_assertions)]
+        println!("YUV-Y av_buffer_make_writable: {}", unsafe {
+            sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[0])
+        });
+        assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[0]) } >= 0);
+        // #[cfg(debug_assertions)]
+        // println!("YUV-U av_buffer_make_writable: {}", unsafe {
+        //     sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[1])
+        // });
+        // assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[1]) } >= 0);
+        // #[cfg(debug_assertions)]
+        // println!("YUV-V av_buffer_make_writable: {}", unsafe {
+        //     sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[2])
+        // });
+        // assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[2]) } >= 0);
+        #[cfg(debug_assertions)]
+        println!("Convert: {:?}", time.elapsed());
 
         'record: loop {
+            // ALSO DRAW THE NEXT FRAME WHILE MAPPING
             for event in self.event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. } => break 'record,
-                    _ => {} // egui_state.process_input(&window, event, &mut painter);
+                    _ => {}
                 }
             }
             self.p.time += 1.0 / self.p.framerate * self.p.gravity;
-            
-            // for _u in 0..self.p.cores {
-            // let mut ogl = self.handles.remove(0).join().unwrap();
+
             if self.p.time > self.p.max_time {
                 break 'record;
-            } // Stop when it's finished playing
+            }
             unsafe {
                 gl::Uniform1f(self.p.u_time.id, self.p.time);
             }
@@ -509,11 +607,13 @@ impl Pianorium {
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            fbo.bind(gl::FRAMEBUFFER, fbo.s);
-            pbo.set(
-                self.p.width * self.p.height * 3,
-                encoder.frame_rgb.data[0].cast(),
+            assert!(
+                unsafe { sys::av_buffer_make_writable(&mut encoder.frame_rgb.buf[0]) } >= 0,
+                "Can't write to frame_rgb.buf!"
             );
+
+            fbo.bind(gl::FRAMEBUFFER, fbo.s);
+            pbo.set(self.p.width * self.p.height * 3, rgb_buffer.cast());
 
             unsafe {
                 gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
@@ -532,11 +632,35 @@ impl Pianorium {
             println!("Map ptr: {:?}", ptr);
             #[cfg(debug_assertions)]
             println!("Map: {:?}", time.elapsed());
-            // 2 Allocated locations: export1&map2 && export2&map3
 
-            encoder.send(self.frame_count as i64, data_ptr.0);  
-            
+            #[cfg(debug_assertions)]
+            let time = Instant::now();
+            encoder.encode();
+            #[cfg(debug_assertions)]
+            println!("Encode: {:?}", time.elapsed());
+
             pbo.unmap();
+
+            #[cfg(debug_assertions)]
+            let time = Instant::now();
+            encoder.convert(self.frame_count as i64, self.p.height as i32);
+            #[cfg(debug_assertions)]
+            println!("YUV-Y av_buffer_make_writable: {}", unsafe {
+                sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[0])
+            });
+            assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[0]) } >= 0);
+            // #[cfg(debug_assertions)]
+            // println!("YUV-U av_buffer_make_writable: {}", unsafe {
+            //     sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[1])
+            // });
+            // assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[1]) } >= 0);
+            // #[cfg(debug_assertions)]
+            // println!("YUV-V av_buffer_make_writable: {}", unsafe {
+            //     sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[2])
+            // });
+            // assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[2]) } >= 0);
+            #[cfg(debug_assertions)]
+            println!("Convert: {:?}", time.elapsed());
 
             self.frame_count += 1;
         }
@@ -546,7 +670,7 @@ impl Pianorium {
         Ok(())
     }
 
-    /// Saves an image of the full song.
+    /// [NOT IMPLEMENTED YET] Renders a PNG of the full song.
     pub fn full_png(&mut self) -> Result<(), String> {
         // let ogl = self.handles.remove(0).join().unwrap();
 
@@ -575,8 +699,8 @@ impl Pianorium {
 
         Ok(())
     }
+
     /// Draws the GUI.
-    // Needs reorganise
     fn draw_gui(&mut self) {
         egui::Window::new("Preview").show(&self.gui.egui_ctx, |ui| {
             egui::Grid::new("Preview").show(ui, |ui| {
@@ -760,13 +884,14 @@ impl Pianorium {
         });
     }
 
+    /// Draw the GUI for the last frame, which won't be updated
     fn draw_last(&mut self) {
         egui::Window::new("Pianorium").show(&self.gui.egui_ctx, |ui| {
             ui.label("Rendering started. This window will exit when the rendering finishes.");
+            ui.label("Closing this window manually would stop the rendering.");
             ui.label(
-                "You can minimize this window to let the rendering finish with the window hidden",
+                "You can minimize this window to let the rendering finish with the window hidden.",
             );
-            ui.label("A progress bar may be added in the future.");
         });
     }
 
@@ -774,12 +899,14 @@ impl Pianorium {
     //     Ok(())
     // }
 
+    /// Sets up the filesystem
     fn setup() -> std::io::Result<()> {
         let _ = remove_dir_all("pianorium_temp");
         create_dir("pianorium_temp")?;
         Ok(())
     }
 
+    /// Tears down the filesystem
     fn teardown() -> std::io::Result<()> {
         remove_dir_all("pianorium_temp")?;
         let _ = remove_file("pianorium_index.txt");
@@ -789,6 +916,7 @@ impl Pianorium {
         Ok(())
     }
 
+    /// Reads RGB from the bound FBO
     pub fn read(&mut self) {
         unsafe {
             gl::ReadPixels(
@@ -803,6 +931,7 @@ impl Pianorium {
         }
     }
 
+    /// Draws the scene elements
     pub fn draw(&mut self) {
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -876,7 +1005,7 @@ impl Pianorium {
     }
 }
 
-/// Vertical Octave Lines
+/// Vertical Octave Lines between each B and C note
 pub struct Ol {
     halfspan: f32,
     vert: Vec<f32>,
@@ -942,6 +1071,7 @@ impl Ol {
     }
 }
 
+/// Characteristics for a single note
 #[derive(Debug, Clone)]
 pub struct Note {
     pub note: u8, // A0 is 21 ; C8 is 108
@@ -949,6 +1079,7 @@ pub struct Note {
     pub end: f32,
 }
 
+/// Group & display of all the notes
 #[derive(Clone)]
 pub struct Notes {
     pub notes: Vec<Note>,
@@ -1143,6 +1274,7 @@ impl Notes {
     }
 }
 
+/// OpenGL Framebuffer Object
 pub struct Fbos {
     pub s: GLuint,
     pub m: GLuint,
@@ -1185,7 +1317,8 @@ impl Fbos {
         let status = unsafe { gl::CheckFramebufferStatus(gl::FRAMEBUFFER) };
         assert!(
             status == gl::FRAMEBUFFER_COMPLETE,
-            "🛑 Framebuffer wasn't successfully bound. Error {:#?}", status
+            "🛑 Framebuffer wasn't successfully bound. Error {:#?}",
+            status
         )
     }
 
@@ -1216,6 +1349,7 @@ impl Fbos {
     }
 }
 
+/// OpenGL Index Buffer Object
 pub struct Ibo {
     pub id: GLuint,
 }
@@ -1271,6 +1405,7 @@ impl Ibo {
     }
 }
 
+/// OpenGL Pixel Buffer Object, for PACK operations
 pub struct Pbo {
     pub id: GLuint,
 }
@@ -1334,6 +1469,7 @@ impl Pbo {
     }
 }
 
+/// OpenGL Textures attached to framebuffers
 pub struct Textures {
     pub s: GLuint,
     pub m: GLuint,
@@ -1411,6 +1547,7 @@ impl Textures {
     }
 }
 
+/// OpenGL Vertex Array Object, for a common display of notes and particles
 pub struct Vao {
     pub id: GLuint,
 }
@@ -1479,6 +1616,7 @@ impl Vao {
     }
 }
 
+/// OpenGL Vertex Buffer Object, to which are attached: ol data | notes data | particles data
 pub struct Vbo {
     pub id: GLuint,
 }
@@ -1534,6 +1672,7 @@ impl Vbo {
     }
 }
 
+/// Defines the behaviour (partly random) of a single particle
 #[derive(Clone, Debug)]
 pub struct Particle {
     pub position: (f32, f32),
@@ -1562,6 +1701,7 @@ impl Particle {
     }
 }
 
+/// Group & display of all the particles
 #[derive(Clone, Debug)]
 pub struct Particles {
     pub particles: Vec<Particle>,
@@ -1637,6 +1777,7 @@ impl Particles {
     }
 }
 
+/// An OpenGL program, made of vertex and fragment shaders
 pub struct Program {
     pub id: GLuint,
 }
@@ -1704,6 +1845,7 @@ impl Drop for Program {
     }
 }
 
+/// And OpenGL Shader for parallel computing
 pub struct Shader {
     id: GLuint,
 }
@@ -1735,6 +1877,7 @@ impl Drop for Shader {
     }
 }
 
+/// Creates a shader out of a file path to one
 fn shader_from_source(source: &CStr, kind: GLenum) -> Result<GLuint, String> {
     let id = unsafe { gl::CreateShader(kind) };
     unsafe {
@@ -1771,6 +1914,7 @@ fn create_whitespace_cstring_with_len(len: usize) -> CString {
     unsafe { CString::from_vec_unchecked(buffer) }
 }
 
+/// Creates the shader program for Pianorium
 pub fn create_program() -> Result<Program, &'static str> {
     let vert_shader =
         Shader::from_vert_source(&CString::new(include_str!(".vert")).unwrap()).unwrap();
@@ -1786,6 +1930,7 @@ pub fn create_program() -> Result<Program, &'static str> {
     })
 }
 
+/// An OpenGL uniform, used by shaders for customization
 pub struct Uniform {
     pub id: GLint,
 }
@@ -1801,6 +1946,7 @@ impl Uniform {
     }
 }
 
+/// Components necessary for drawing with egui
 pub struct Gui {
     pub painter: Painter,
     pub egui_state: EguiStateHandler,
@@ -1821,6 +1967,7 @@ impl Gui {
     }
 }
 
+/// Holds data about the egui theme.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Theme {
     pub rosewater: Color32,
@@ -1851,7 +1998,7 @@ pub struct Theme {
     pub crust: Color32,
 }
 
-// Catppuccin color theme
+/// Modified Catppuccin color theme for egui
 pub const FRAPPE: Theme = Theme {
     rosewater: Color32::from_rgb(242, 213, 207),
     flamingo: Color32::from_rgb(238, 190, 190),
@@ -1900,7 +2047,7 @@ fn make_widget_visual(
     }
 }
 
-pub fn egui_set_theme(ctx: &egui::Context, theme: Theme) {
+fn egui_set_theme(ctx: &egui::Context, theme: Theme) {
     let old = ctx.style().visuals.clone();
     ctx.set_visuals(egui::Visuals {
         override_text_color: Some(theme.text),
