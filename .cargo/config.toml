@@ -14,4 +14,5 @@ rustflags = [
 linker = "gcc.exe"
 
 [env]
+RUST_BACKTRACE = "1"
 FFMPEG_DIR = { value = "ffmpeg", relative = true }

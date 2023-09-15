@@ -8,15 +8,11 @@
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/pianorium.exe",
             // Linux, MacOS: "${workspaceFolder}/target/debug/pianorium"
+            "environment": [{
+                "name": "RUST_BACKTRACE", "value": "1",
+            }],
             "args": [
-                "1920",
-                "1080",
-                "60.0",
-                "11",
-                "test.mid",
-                "output.mp4",
-                "output.png",
-                "false",
+                
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "cargo build"
@@ -29,14 +25,7 @@
             "program": "${workspaceFolder}/target/release/pianorium.exe",
             // Linux, MacOS: "${workspaceFolder}/target/release/pianorium"
             "args": [
-                "1920",
-                "1080",
-                "60.0",
-                "11",
-                "test.mid",
-                "output.mp4",
-                "output.png",
-                "false",
+                
             ],
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "cargo build release"
