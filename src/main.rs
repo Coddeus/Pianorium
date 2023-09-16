@@ -1,17 +1,18 @@
 #![windows_subsystem = "windows"]
 
 extern crate egui_sdl2_gl;
-extern crate ffmpeg_sys_next as sys;
+extern crate ffmpeg_next as ff;
 extern crate midly;
 extern crate num_cpus;
 extern crate rand;
 
 pub mod parameters;
+use ff::{codec::Id, Rational};
 pub use parameters::Parameters;
 pub mod layout;
 pub use layout::{BLACK, LAYOUT};
-pub mod encoder;
-pub use encoder::Encoder;
+pub mod video_builder;
+pub use video_builder::VideoBuilder;
 
 /// Creates a new `Pianorium`, plays the chosen song, renders it, and ends.
 fn main() {
@@ -35,11 +36,13 @@ use egui_sdl2_gl::{
 };
 
 use std::{
+    collections::HashMap,
     f32::consts::PI,
     ffi::{c_void, CStr, CString},
     fs::{create_dir, remove_dir_all, remove_file, File},
     io::Read,
-    ptr::null,
+    ptr::{null, null_mut},
+    slice::from_raw_parts,
     time::Instant,
 };
 
@@ -54,6 +57,8 @@ use midly::{
 };
 
 use rand::{thread_rng, Rng};
+
+use crate::video_builder::video_options::VideoOptions;
 
 /// The full application.
 pub struct Pianorium {
@@ -341,15 +346,6 @@ impl Pianorium {
             .gl_set_swap_interval(SwapInterval::Immediate)
             .unwrap();
 
-        let mut encoder = Encoder::new(
-            self.p.width as i32,
-            self.p.height as i32,
-            self.p.framerate as f64,
-            1.max((self.p.max_cores - 2) as u8),
-        );
-        #[cfg(debug_assertions)]
-        println!("\nInitialized the encoder\n");
-
         self.vbo.set(&self.notes.vert);
         self.vao.set();
         self.ibo.set(&self.notes.ind);
@@ -435,8 +431,26 @@ impl Pianorium {
                 self.p.particle_time.to_rgb()[2],
             );
         }
-        #[cfg(debug_assertions)]
-        println!("\nHEEEEREEE!!!\n");
+
+        let mut data_ptr: [*mut u8; 2] = [null_mut(), null_mut()];
+
+        video_builder::init().unwrap();
+        let mut metadata = HashMap::new();
+        metadata.insert("preset".to_owned(), "ultrafast".to_owned());
+        metadata.insert("crf".to_owned(), "0".to_owned());
+        let options = VideoOptions {
+            output_path: "output.mkv".to_owned(),
+            metadata,
+            video_time_base: Rational(1, 60),
+            video_codec: "libx264rgb".to_owned(),
+            video_codec_params: Default::default(),
+            pixel_format_in: "rgb24".to_string(),
+            pixel_format_out: "rgb24".to_string(),
+            resolution_in: (self.p.width as u32, self.p.height as u32),
+            resolution_out: (self.p.width as u32, self.p.height as u32),
+        };
+        let mut encoder = VideoBuilder::new(options).unwrap();
+        encoder.start_encoding().unwrap();
 
         let pbo = Pbo::gen();
 
@@ -485,16 +499,8 @@ impl Pianorium {
         #[cfg(debug_assertions)]
         println!("Blit: {:?}", time.elapsed());
 
-        #[cfg(debug_assertions)]
-        let time = Instant::now();
-
-        assert!( unsafe { sys::av_buffer_make_writable(&mut encoder.frame_rgb.buf[0]) } >= 0, "Can't write to frame_rgb.buf!");
-        #[cfg(debug_assertions)]
-        println!("encoder.frame_rgb.buf[0]: {:?}", encoder.frame_rgb.buf[0]);
-        let rgb_buffer = unsafe { (*encoder.frame_rgb.buf[0]).data };
-
         fbo.bind(gl::FRAMEBUFFER, fbo.s);
-        pbo.set(self.p.width * self.p.height * 3, rgb_buffer.cast());
+        pbo.set(self.p.width * self.p.height * 3);
         unsafe {
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }
@@ -506,41 +512,14 @@ impl Pianorium {
         #[cfg(debug_assertions)]
         let time = Instant::now();
 
-        let ptr: *mut c_void = pbo.map();
+        data_ptr[0] = pbo.map().cast();
 
         #[cfg(debug_assertions)]
-        println!("Map ptr: {:?}", ptr);
+        println!("Map ptr: {:?}", data_ptr[0]);
         #[cfg(debug_assertions)]
         println!("Map: {:?}", time.elapsed());
 
         pbo.unmap();
-
-        #[cfg(debug_assertions)]
-        let time = Instant::now();
-        encoder.convert(self.frame_count as i64, self.p.height as i32);
-        println!("encoder.frame_rgb.buf[0]: {:?}", encoder.frame_rgb.buf[0]);
-        println!("encoder.frame_rgb.buf[1]: {:?}", encoder.frame_rgb.buf[1]);
-        println!("encoder.frame_rgb.buf[2]: {:?}", encoder.frame_rgb.buf[2]);
-        println!("encoder.frame_yuv.buf[0]: {:?}", encoder.frame_yuv.buf[0]);
-        println!("encoder.frame_yuv.buf[1]: {:?}", encoder.frame_yuv.buf[1]);
-        println!("encoder.frame_yuv.buf[2]: {:?}", encoder.frame_yuv.buf[2]);
-        #[cfg(debug_assertions)]
-        println!("YUV-Y av_buffer_make_writable: {}", unsafe {
-            sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[0])
-        });
-        assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[0]) } >= 0);
-        // #[cfg(debug_assertions)]
-        // println!("YUV-U av_buffer_make_writable: {}", unsafe {
-        //     sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[1])
-        // });
-        // assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[1]) } >= 0);
-        // #[cfg(debug_assertions)]
-        // println!("YUV-V av_buffer_make_writable: {}", unsafe {
-        //     sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[2])
-        // });
-        // assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[2]) } >= 0);
-        #[cfg(debug_assertions)]
-        println!("Convert: {:?}", time.elapsed());
 
         'record: loop {
             // ALSO DRAW THE NEXT FRAME WHILE MAPPING
@@ -597,7 +576,7 @@ impl Pianorium {
                     self.p.width as GLint,
                     self.p.height as GLint,
                     gl::COLOR_BUFFER_BIT,
-                    gl::NEAREST,
+                    gl::NEAREST, // choose
                 );
             }
 
@@ -607,14 +586,11 @@ impl Pianorium {
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            assert!(
-                unsafe { sys::av_buffer_make_writable(&mut encoder.frame_rgb.buf[0]) } >= 0,
-                "Can't write to frame_rgb.buf!"
-            );
+            let readindex = (self.frame_count + 1) % 2;
+            let encodeindex = self.frame_count % 2;
 
             fbo.bind(gl::FRAMEBUFFER, fbo.s);
-            pbo.set(self.p.width * self.p.height * 3, rgb_buffer.cast());
-
+            pbo.set(self.p.bytes);
             unsafe {
                 gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
             }
@@ -626,46 +602,31 @@ impl Pianorium {
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            let ptr: *mut c_void = pbo.map();
+            println!("{:?}", data_ptr[readindex],);
+            encoder
+                .push_video_data(unsafe { from_raw_parts(data_ptr[encodeindex], self.p.bytes) })
+                .unwrap();
+            encoder.step_encoding().unwrap();
 
-            #[cfg(debug_assertions)]
-            println!("Map ptr: {:?}", ptr);
-            #[cfg(debug_assertions)]
-            println!("Map: {:?}", time.elapsed());
-
-            #[cfg(debug_assertions)]
-            let time = Instant::now();
-            encoder.encode();
             #[cfg(debug_assertions)]
             println!("Encode: {:?}", time.elapsed());
 
-            pbo.unmap();
-
             #[cfg(debug_assertions)]
             let time = Instant::now();
-            encoder.convert(self.frame_count as i64, self.p.height as i32);
+
+            data_ptr[readindex] = pbo.map().cast();
+
             #[cfg(debug_assertions)]
-            println!("YUV-Y av_buffer_make_writable: {}", unsafe {
-                sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[0])
-            });
-            assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[0]) } >= 0);
-            // #[cfg(debug_assertions)]
-            // println!("YUV-U av_buffer_make_writable: {}", unsafe {
-            //     sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[1])
-            // });
-            // assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[1]) } >= 0);
-            // #[cfg(debug_assertions)]
-            // println!("YUV-V av_buffer_make_writable: {}", unsafe {
-            //     sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[2])
-            // });
-            // assert!(unsafe { sys::av_buffer_make_writable(&mut encoder.frame_yuv.buf[2]) } >= 0);
+            println!("Map ptr: {:?}", data_ptr[readindex]);
             #[cfg(debug_assertions)]
-            println!("Convert: {:?}", time.elapsed());
+            println!("Map: {:?}", time.elapsed());
+
+            pbo.unmap();
 
             self.frame_count += 1;
         }
 
-        encoder.encode_last();
+        encoder.finish_encoding().unwrap();
 
         Ok(())
     }
@@ -712,7 +673,6 @@ impl Pianorium {
                 if ui.add(egui::Button::new("Restart")).clicked() {
                     self.notes.update(-self.p.time * self.p.gravity);
                     self.p.time = 0.;
-                    self.frame_count = 0;
                     self.particles = Particles::new();
                 }
                 ui.end_row();
@@ -1426,9 +1386,9 @@ impl Pbo {
         Pbo { id }
     }
 
-    pub fn set(&self, bytes: usize, ptr: *const gl::types::GLvoid) {
+    pub fn set(&self, bytes: usize) {
         self.bind();
-        self.data(bytes, ptr);
+        self.data(bytes);
     }
 
     fn bind(&self) {
@@ -1437,12 +1397,12 @@ impl Pbo {
         }
     }
 
-    fn data(&self, bytes: usize, ptr: *const gl::types::GLvoid) {
+    fn data(&self, bytes: usize) {
         unsafe {
             gl::BufferData(
                 gl::PIXEL_PACK_BUFFER,
                 bytes as gl::types::GLsizeiptr,
-                ptr,
+                null(),
                 gl::STREAM_READ,
             );
         }

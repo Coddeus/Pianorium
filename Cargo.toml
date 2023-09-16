@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ffmpeg-sys-next = "*"
+ffmpeg-next = "*"
 egui_sdl2_gl = { version = "0.16.0", features = ["sdl2_static-link"] }
 midly = "*"
 num_cpus = "*"

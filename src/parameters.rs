@@ -69,7 +69,7 @@ impl Default for Parameters {
     fn default() -> Self {
         let width: usize = 800;
         let height: usize = 600;
-        let bytes: usize = width * height * 4;
+        let bytes: usize = width * height * 3;
         let max_cores: usize = num_cpus::get();
         let cores: usize = max_cores;
         let mut max_samples: GLint = 0;

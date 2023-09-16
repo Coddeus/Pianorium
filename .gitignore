@@ -19,6 +19,7 @@ pianorium_index.txt
 *.log
 *.hevc
 *.m4a
+*.mkv
 
 # Flamegraphs
 *.svg
