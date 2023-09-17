@@ -46,7 +46,8 @@ impl VideoBuilder {
 
     pub fn start_encoding(&mut self) -> Result<(), String> {
         let mut opts = Dictionary::new();
-        println!("{}", self.out_ctx.format().name());
+        #[cfg(debug_assertions)]
+        println!("Output format: {}\n", self.out_ctx.format().name());
         match self.out_ctx.format().name() {
             "mp4" => opts.set("movflags", "faststart"),
             _ => ()

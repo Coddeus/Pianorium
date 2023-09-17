@@ -7,7 +7,7 @@ extern crate num_cpus;
 extern crate rand;
 
 pub mod parameters;
-use ff::{codec::Id, Rational};
+use ff::Rational;
 pub use parameters::Parameters;
 pub mod layout;
 pub use layout::{BLACK, LAYOUT};
@@ -38,7 +38,7 @@ use egui_sdl2_gl::{
 use std::{
     collections::HashMap,
     f32::consts::PI,
-    ffi::{c_void, CStr, CString},
+    ffi::{CStr, CString},
     fs::{create_dir, remove_dir_all, remove_file, File},
     io::Read,
     ptr::{null, null_mut},
@@ -106,7 +106,7 @@ impl Pianorium {
         gl_attr.set_double_buffer(true);
         gl_attr.set_multisample_samples(16);
         let window = video_subsystem
-            .window("Pianorium", 800, 600)
+            .window("Pianorium", 1366, 768)
             .resizable()
             .opengl()
             .build()
@@ -126,9 +126,9 @@ impl Pianorium {
 
         let mut p: Parameters = Parameters::default();
 
-        let frame: usize = 0;
+        let frame_count: usize = 0;
 
-        let ol: Ol = Ol::create(p.octave_line).unwrap();
+        let ol: Ol = Ol::create(p.ol_width).unwrap();
         let (notes, max_time) = Notes::from_midi(800 as f32 / 600 as f32, 1.0, "test.mid").unwrap();
         let particles: Particles = Particles::new();
 
@@ -156,7 +156,7 @@ impl Pianorium {
             gl,
             event_pump,
             gui,
-            frame_count: frame,
+            frame_count,
             ol,
             notes,
             particles,
@@ -206,9 +206,17 @@ impl Pianorium {
             self.vao.set();
             self.ibo.set(&self.notes.ind);
             self.p.program.set_used();
+            // Try putting them in egui…….changed() {  } ?
             unsafe {
                 gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
                 gl::Uniform1f(self.p.u_time.id, self.p.time);
+                gl::Uniform1i(self.p.u_vflip.id, self.p.vflip as i32);
+                gl::Uniform3f(
+                    self.p.u_ol_color.id,
+                    self.p.ol_color.to_rgb()[0],
+                    self.p.ol_color.to_rgb()[1],
+                    self.p.ol_color.to_rgb()[2],
+                );
                 gl::Uniform3f(
                     self.p.u_note_left.id,
                     self.p.note_left.to_rgb()[0],
@@ -234,12 +242,6 @@ impl Pianorium {
                     self.p.note_bottom.to_rgb()[2],
                 );
                 gl::Uniform3f(
-                    self.p.u_note_time.id,
-                    self.p.note_time.to_rgb()[0],
-                    self.p.note_time.to_rgb()[1],
-                    self.p.note_time.to_rgb()[2],
-                );
-                gl::Uniform3f(
                     self.p.u_particle_left.id,
                     self.p.particle_left.to_rgb()[0],
                     self.p.particle_left.to_rgb()[1],
@@ -263,16 +265,10 @@ impl Pianorium {
                     self.p.particle_bottom.to_rgb()[1],
                     self.p.particle_bottom.to_rgb()[2],
                 );
-                gl::Uniform3f(
-                    self.p.u_particle_time.id,
-                    self.p.particle_time.to_rgb()[0],
-                    self.p.particle_time.to_rgb()[1],
-                    self.p.particle_time.to_rgb()[2],
-                );
+                gl::Uniform1f(self.p.u_particle_transparency.id, self.p.particle_transparency);
             }
             self.notes.update(time_diff * self.p.gravity);
-            self.particles
-                .update(time_diff * self.p.gravity, &self.notes.vert);
+            if self.p.particle_show { self.particles.update(time_diff * self.p.gravity, &self.notes.vert, self.p.particle_density as f32); }
             unsafe {
                 gl::Enable(gl::BLEND);
                 gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -280,7 +276,9 @@ impl Pianorium {
             }
             self.draw();
 
-            self.draw_gui();
+            if self.draw_gui() { break 'play };
+            // if draw_gui { if self.draw_gui() { break 'play }; }
+            // self.draw_hider() // -> GUI that controls whether othe GUI components are visible.
             rgb = self.p.bg.to_rgb();
 
             let (egui_output, paint_cmds) = self.gui.egui_ctx.end_frame();
@@ -317,6 +315,7 @@ impl Pianorium {
         self.ibo.set(&self.notes.ind);
         self.p.program.set_used();
 
+        self.draw_gui();
         self.draw_last();
         unsafe {
             gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
@@ -370,6 +369,13 @@ impl Pianorium {
         unsafe {
             let rgb: [f32; 3] = self.p.bg.to_rgb();
             gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
+            gl::Uniform1i(self.p.u_vflip.id, (self.p.vflip as i32+1)%2);
+            gl::Uniform3f(
+                self.p.u_ol_color.id,
+                self.p.ol_color.to_rgb()[0],
+                self.p.ol_color.to_rgb()[1],
+                self.p.ol_color.to_rgb()[2],
+            );
             gl::Uniform3f(
                 self.p.u_note_left.id,
                 self.p.note_left.to_rgb()[0],
@@ -395,12 +401,6 @@ impl Pianorium {
                 self.p.note_bottom.to_rgb()[2],
             );
             gl::Uniform3f(
-                self.p.u_note_time.id,
-                self.p.note_time.to_rgb()[0],
-                self.p.note_time.to_rgb()[1],
-                self.p.note_time.to_rgb()[2],
-            );
-            gl::Uniform3f(
                 self.p.u_particle_left.id,
                 self.p.particle_left.to_rgb()[0],
                 self.p.particle_left.to_rgb()[1],
@@ -424,24 +424,22 @@ impl Pianorium {
                 self.p.particle_bottom.to_rgb()[1],
                 self.p.particle_bottom.to_rgb()[2],
             );
-            gl::Uniform3f(
-                self.p.u_particle_time.id,
-                self.p.particle_time.to_rgb()[0],
-                self.p.particle_time.to_rgb()[1],
-                self.p.particle_time.to_rgb()[2],
-            );
+            gl::Uniform1f(self.p.u_particle_transparency.id, self.p.particle_transparency);
         }
 
         let mut data_ptr: [*mut u8; 2] = [null_mut(), null_mut()];
 
         video_builder::init().unwrap();
-        let mut metadata = HashMap::new();
-        metadata.insert("preset".to_owned(), "ultrafast".to_owned());
-        metadata.insert("crf".to_owned(), "0".to_owned());
+        let metadata = HashMap::new();
+        // Those are or encoder. information to give here ?
+        // metadata.insert("preset".to_owned(), "ultrafast".to_owned());
+        // metadata.insert("crf".to_owned(), "0".to_owned());
+        
+        // User choice between compression and speed (and quality). (as well as HW usage) 
         let options = VideoOptions {
             output_path: "output.mkv".to_owned(),
             metadata,
-            video_time_base: Rational(1, 60),
+            video_time_base: Rational(1, self.p.framerate),
             video_codec: "libx264rgb".to_owned(),
             video_codec_params: Default::default(),
             pixel_format_in: "rgb24".to_string(),
@@ -457,12 +455,6 @@ impl Pianorium {
         unsafe {
             gl::Uniform1f(self.p.u_time.id, self.p.time);
         }
-
-        #[cfg(debug_assertions)]
-        let time = Instant::now();
-
-        #[cfg(debug_assertions)]
-        println!("Update: {:?}", time.elapsed());
 
         #[cfg(debug_assertions)]
         let time = Instant::now();
@@ -529,7 +521,7 @@ impl Pianorium {
                     _ => {}
                 }
             }
-            self.p.time += 1.0 / self.p.framerate * self.p.gravity;
+            self.p.time += 1.0 / self.p.framerate as f32 * self.p.gravity;
 
             if self.p.time > self.p.max_time {
                 break 'record;
@@ -541,9 +533,8 @@ impl Pianorium {
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            self.notes.update(1.0 / self.p.framerate * self.p.gravity);
-            self.particles
-                .update(1.0 / self.p.framerate * self.p.gravity, &self.notes.vert);
+            self.notes.update(1.0 / self.p.framerate as f32 * self.p.gravity);
+            if self.p.particle_show { self.particles.update(1.0 / self.p.framerate as f32 * self.p.gravity, &self.notes.vert, self.p.particle_density as f32); }
 
             #[cfg(debug_assertions)]
             println!("Update: {:?}", time.elapsed());
@@ -602,7 +593,7 @@ impl Pianorium {
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            println!("{:?}", data_ptr[readindex],);
+            println!("{:?}", data_ptr[readindex]);
             encoder
                 .push_video_data(unsafe { from_raw_parts(data_ptr[encodeindex], self.p.bytes) })
                 .unwrap();
@@ -631,38 +622,39 @@ impl Pianorium {
         Ok(())
     }
 
-    /// [NOT IMPLEMENTED YET] Renders a PNG of the full song.
-    pub fn full_png(&mut self) -> Result<(), String> {
-        // let ogl = self.handles.remove(0).join().unwrap();
+    // /// [NOT IMPLEMENTED YET] Renders a PNG of the full song.
+    // fn full_png(&mut self) -> Result<(), String> {
+    //     // let ogl = self.handles.remove(0).join().unwrap();
+    // 
+    //     self.to_start();
+    //     self.particles = Particles::new();
+    //     for y in self.notes.vert.iter_mut().skip(1).step_by(3) {
+    //         *y = (*y / self.p.max_time as f32 - 0.5) * 2.;
+    //     }
+    // 
+    //     unsafe {
+    //         gl::Uniform1f(self.p.u_time.id, 0.0);
+    //     }
+    //     // unsafe { gl::Viewport(0, 0, (self.width/4) as i32, (self.height*3) as i32); } // with framebuffer change as well
+    //     self.draw();
+    //     self.read();
+    //     // let png_file = self.p.png_file.clone();
+    //     // spawn(move ||{
+    //     // HERE self.export_png(&png_file);
+    //     #[cfg(debug_assertions)]
+    //     println!("✨ Generated an image of the full song! ✨");
+    //     // self.renderer.frame += self.renderer.cores;
+    //     // });
+    //     // self.renderer = OpenGLContext::new(self.p.width, self.p.height, self.p.framerate, self.p.cores, &self.p.midi_file);
+    // 
+    //     // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
+    // 
+    //     Ok(())
+    // }
 
-        self.to_start();
-        self.particles = Particles::new();
-        for y in self.notes.vert.iter_mut().skip(1).step_by(3) {
-            *y = (*y / self.p.max_time as f32 - 0.5) * 2.;
-        }
-
-        unsafe {
-            gl::Uniform1f(self.p.u_time.id, 0.0);
-        }
-        // unsafe { gl::Viewport(0, 0, (self.width/4) as i32, (self.height*3) as i32); } // with framebuffer change as well
-        self.draw();
-        self.read();
-        // let png_file = self.p.png_file.clone();
-        // spawn(move ||{
-        // HERE self.export_png(&png_file);
-        #[cfg(debug_assertions)]
-        println!("✨ Generated an image of the full song! ✨");
-        // self.renderer.frame += self.renderer.cores;
-        // });
-        // self.renderer = OpenGLContext::new(self.p.width, self.p.height, self.p.framerate, self.p.cores, &self.p.midi_file);
-
-        // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
-
-        Ok(())
-    }
-
-    /// Draws the GUI.
-    fn draw_gui(&mut self) {
+    /// Draws the GUI. The return value specifes whether 
+    fn draw_gui(&mut self) -> bool {
+        let mut start: bool = false;
         egui::Window::new("Preview").show(&self.gui.egui_ctx, |ui| {
             egui::Grid::new("Preview").show(ui, |ui| {
                 ui.label("Preview speed:");
@@ -678,27 +670,7 @@ impl Pianorium {
                 ui.end_row();
             });
         });
-        egui::Window::new("Background").show(&self.gui.egui_ctx, |ui| {
-            egui::Grid::new("Background").show(ui, |ui| {
-                ui.label("Color:");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.bg,
-                    self.p.alpha,
-                );
-                ui.end_row();
-
-                ui.label("Image: ");
-                if ui.add(egui::Button::new("Find")).clicked() {
-                    // self.notes.update(-self.p.time * self.p.gravity);
-                    // self.p.time = 0.;
-                    // self.frame = 0;
-                    // self.particles = Particles::new();
-                }
-                ui.end_row();
-            });
-        });
-        egui::Window::new("General specification").show(&self.gui.egui_ctx, |ui| {
+        egui::Window::new("General").show(&self.gui.egui_ctx, |ui| {
             egui::Grid::new("General specification").show(ui, |ui| {
                 ui.label("Width:");
                 if ui
@@ -718,9 +690,9 @@ impl Pianorium {
                 }
                 ui.end_row();
 
-                ui.label("CPU Cores:");
-                ui.add(egui::Slider::new(&mut self.p.cores, 1..=self.p.max_cores));
-                ui.end_row();
+                // ui.label("CPU Cores:");
+                // ui.add(egui::Slider::new(&mut self.p.cores, 1..=self.p.max_cores));
+                // ui.end_row();
 
                 ui.label("Samples:");
                 if ui
@@ -739,9 +711,48 @@ impl Pianorium {
                 ui.end_row();
 
                 ui.label("Framerate:");
-                ui.add(egui::Slider::new(&mut self.p.framerate, 0.0..=240.0));
+                ui.add(egui::Slider::new(&mut self.p.framerate, 1..=240));
                 ui.end_row();
 
+                ui.label("Vertical flip:");
+                ui.add(egui::Checkbox::new(&mut self.p.vflip, ""));
+                ui.end_row();
+            });
+        });
+        egui::Window::new("Background").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Background").show(ui, |ui| {
+                ui.label("Color:");
+                egui::widgets::color_picker::color_edit_button_hsva(
+                    ui,
+                    &mut self.p.bg,
+                    self.p.alpha,
+                );
+                ui.end_row();
+
+                // ui.label("Image: ");
+                // if ui.add(egui::Button::new("Find")).clicked() {
+                //     // self.notes.update(-self.p.time * self.p.gravity);
+                //     // self.p.time = 0.;
+                //     // self.frame = 0;
+                //     // self.particles = Particles::new();
+                // }
+                // ui.end_row();
+            });
+        });
+        egui::Window::new("Render").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Render").show(ui, |ui| {
+                ui.label("✨ Start rendering: ");
+                if ui.add(egui::Button::new("Start")).clicked() {
+                    start = true;
+                }
+                ui.end_row();
+            });
+        });
+        egui::Window::new("Notes").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Notes").show(ui, |ui| {
+                ui.label("Show:");
+                ui.add(egui::Checkbox::new(&mut self.p.note_show, ""));
+                ui.end_row();
                 ui.label("Gravity:");
                 if ui
                     .add(egui::Slider::new(&mut self.p.gravity, 0.3..=2.0))
@@ -757,11 +768,8 @@ impl Pianorium {
                     self.p.latest_gravity = self.p.gravity;
                 };
                 ui.end_row();
-            });
-        });
-        egui::Window::new("Notes").show(&self.gui.egui_ctx, |ui| {
-            egui::Grid::new("Notes").show(ui, |ui| {
-                ui.label("Notes color - Left");
+
+                ui.label("Color - Left");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
                     &mut self.p.note_left,
@@ -769,7 +777,7 @@ impl Pianorium {
                 );
                 ui.end_row();
 
-                ui.label("Notes color - Right");
+                ui.label("Color - Right");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
                     &mut self.p.note_right,
@@ -777,7 +785,7 @@ impl Pianorium {
                 );
                 ui.end_row();
 
-                ui.label("Notes color - Top");
+                ui.label("Color - Top");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
                     &mut self.p.note_top,
@@ -785,23 +793,30 @@ impl Pianorium {
                 );
                 ui.end_row();
 
-                ui.label("Notes color - Bottom");
+                ui.label("Color - Bottom");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
                     &mut self.p.note_bottom,
                     self.p.alpha,
                 );
                 ui.end_row();
-
-                ui.label("Notes color - Time");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.note_time,
-                    self.p.alpha,
-                );
+            });
+        });
+        egui::Window::new("Particles").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Particles").show(ui, |ui| {
+                ui.label("Show:");
+                ui.add(egui::Checkbox::new(&mut self.p.particle_show, ""));
                 ui.end_row();
 
-                ui.label("Particles color - Left");
+                ui.label("Density:");
+                ui.add(egui::Slider::new(&mut self.p.particle_density, 1..=50000));
+                ui.end_row();
+
+                ui.label("Transparency:");
+                ui.add(egui::Slider::new(&mut self.p.particle_transparency, 0.0..=1.0));
+                ui.end_row();
+
+                ui.label("Color - Left");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
                     &mut self.p.particle_left,
@@ -809,7 +824,7 @@ impl Pianorium {
                 );
                 ui.end_row();
 
-                ui.label("Particles color - Right");
+                ui.label("Color - Right");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
                     &mut self.p.particle_right,
@@ -817,7 +832,7 @@ impl Pianorium {
                 );
                 ui.end_row();
 
-                ui.label("Particles color - Top");
+                ui.label("Color - Top");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
                     &mut self.p.particle_top,
@@ -825,23 +840,31 @@ impl Pianorium {
                 );
                 ui.end_row();
 
-                ui.label("Particles color - Bottom");
+                ui.label("Color - Bottom");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
                     &mut self.p.particle_bottom,
                     self.p.alpha,
                 );
                 ui.end_row();
+            });
+        });
+        egui::Window::new("Octave lines").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Octave lines").show(ui, |ui| {
+                ui.label("Show:");
+                ui.add(egui::Checkbox::new(&mut self.p.ol_show, ""));
+                ui.end_row();
 
-                ui.label("Particles color - Time");
+                ui.label("Color");
                 egui::widgets::color_picker::color_edit_button_hsva(
                     ui,
-                    &mut self.p.particle_time,
+                    &mut self.p.ol_color,
                     self.p.alpha,
                 );
                 ui.end_row();
             });
         });
+        start
     }
 
     /// Draw the GUI for the last frame, which won't be updated
@@ -896,9 +919,9 @@ impl Pianorium {
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            self.draw_ol();
-            self.draw_notes();
-            self.draw_particles();
+            if self.p.ol_show { self.draw_ol(); }
+            if self.p.note_show { self.draw_notes(); }
+            if self.p.particle_show { self.draw_particles(); }
         }
     }
 
@@ -961,7 +984,7 @@ impl Pianorium {
         self.notes
             .update((self.p.max_time - self.p.time) * self.p.gravity);
         self.p.time = self.p.max_time;
-        self.frame_count = (self.p.max_time * self.p.framerate) as usize;
+        self.frame_count = (self.p.max_time * self.p.framerate as f32) as usize;
     }
 }
 
@@ -1679,16 +1702,17 @@ impl Particles {
         }
     }
 
-    pub fn update(&mut self, elapsed: f32, note_vert: &Vec<f32>) {
+    pub fn update(&mut self, elapsed: f32, note_vert: &Vec<f32>, density: f32) {
         for p in self.particles.iter_mut() {
             p.update(elapsed)
         }
         self.particles.retain(|p| p.lifetime > 0.);
 
+        // To be optimized
         let mut i: usize = 0;
         while i < note_vert.len() {
             if note_vert[i + 1] < (-1.) && note_vert[i + 7] > (-1.) {
-                for _ in 0..(elapsed * 3000.) as usize {
+                for _ in 0..(elapsed * density) as usize {
                     self.particles.push(Particle::new(
                         (note_vert[i] + note_vert[i + 6]) / 2.,
                         (1000. * note_vert[i]).sin(),
@@ -2031,7 +2055,7 @@ fn egui_set_theme(ctx: &egui::Context, theme: Theme) {
         },
         window_shadow: epaint::Shadow {
             color: theme.base,
-            ..old.window_shadow
+            extrusion: 20.0
         },
         popup_shadow: epaint::Shadow {
             color: theme.base,

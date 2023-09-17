@@ -1,7 +1,5 @@
-use std::ffi::{c_int, CString};
-use std::mem;
-use ffmpeg_next::{ChannelLayout, codec, Codec, Error, filter, format, StreamMut};
-use ffmpeg_next::ffi::{AV_CODEC_CAP_VARIABLE_FRAME_SIZE, av_get_sample_fmt, AV_OPT_SEARCH_CHILDREN, av_opt_set_bin, avcodec_alloc_context3, avcodec_parameters_from_context, avcodec_parameters_to_context, AVSampleFormat};
+use ffmpeg_next::{codec, Codec, Error, format, StreamMut};
+use ffmpeg_next::ffi::{avcodec_alloc_context3, avcodec_parameters_from_context, avcodec_parameters_to_context};
 
 pub fn ffmpeg_create_context(codec: Codec, parameters: codec::Parameters) -> Result<codec::Context, String> {
     // ffmpeg-next does not provide a way to pass a codec to avcodec_alloc_context3, which
@@ -50,27 +48,6 @@ pub fn ffmpeg_copy_codec_params(stream: &mut StreamMut, context: &codec::Context
         (*(*stream.as_mut_ptr()).codecpar).codec_type = codec.medium().into();
     }
     Ok(())
-}
-
-pub fn ffmpeg_sample_format_from_string(value: &str) -> format::Sample {
-    // This is provided by ffmpeg-next, but only for `&'static str`, presumably due to
-    // some confusion over the `const char*` in the method signature?
-    unsafe {
-        let value = CString::new(value).unwrap();
-
-        format::Sample::from(av_get_sample_fmt(value.as_ptr()))
-    }
-}
-
-pub fn ffmpeg_set_audio_stream_frame_size(stream: &mut StreamMut, variable_frame_size: usize) -> usize {
-    unsafe {
-        let frame_size = (*(*stream.as_ptr()).codecpar).frame_size as usize;
-        if frame_size == 0 || (frame_size & AV_CODEC_CAP_VARIABLE_FRAME_SIZE as usize) != 0 {
-            (*(*stream.as_mut_ptr()).codecpar).frame_size = variable_frame_size as _;
-            return variable_frame_size;
-        }
-        frame_size
-    }
 }
 
 pub fn ffmpeg_context_bytes_written(context: &format::context::Output) -> usize {

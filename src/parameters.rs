@@ -13,6 +13,7 @@ use crate::{create_program, Program, Uniform};
 // pub vertical_img_divide: u8,
 /// The rendering parameters
 pub struct Parameters {
+    // CPU stuff
     pub bytes: usize,
     pub max_cores: usize,
     pub max_time: f32,
@@ -23,9 +24,14 @@ pub struct Parameters {
     pub cores: usize,
     pub max_samples: u8,
     pub samples: u8,
-    pub framerate: f32,
+    pub framerate: i32,
     pub latest_gravity: f32,
     pub gravity: f32,
+    pub ol_show: bool,
+    pub ol_width: f32,
+    pub note_show: bool,
+    pub particle_show: bool,
+    pub particle_density: u32,
     pub preview_speed: f32,
     pub midi_file: String,
     pub mp4_file: String,
@@ -34,41 +40,41 @@ pub struct Parameters {
     pub bg: Hsva,
     pub alpha: Alpha,
 
+    // GPU stuff
     pub program: Program,
 
     pub time: f32,
-    pub octave_line: f32,
+    pub vflip: bool,
     pub ol_color: Hsva,
     pub note_left: Hsva,
     pub note_right: Hsva,
     pub note_top: Hsva,
     pub note_bottom: Hsva,
-    pub note_time: Hsva,
     pub particle_left: Hsva,
     pub particle_right: Hsva,
     pub particle_top: Hsva,
     pub particle_bottom: Hsva,
-    pub particle_time: Hsva,
+    pub particle_transparency: f32,
 
     pub u_time: Uniform,
     pub u_resolution: Uniform,
+    pub u_vflip: Uniform,
     pub u_ol_color: Uniform,
     pub u_note_left: Uniform,
     pub u_note_right: Uniform,
     pub u_note_top: Uniform,
     pub u_note_bottom: Uniform,
-    pub u_note_time: Uniform,
     pub u_particle_left: Uniform,
     pub u_particle_right: Uniform,
     pub u_particle_top: Uniform,
     pub u_particle_bottom: Uniform,
-    pub u_particle_time: Uniform,
+    pub u_particle_transparency: Uniform,
 }
 
 impl Default for Parameters {
     fn default() -> Self {
-        let width: usize = 800;
-        let height: usize = 600;
+        let width: usize = 1920;
+        let height: usize = 1080;
         let bytes: usize = width * height * 3;
         let max_cores: usize = num_cpus::get();
         let cores: usize = max_cores;
@@ -79,22 +85,24 @@ impl Default for Parameters {
             gl::GetIntegerv(gl::MAX_COLOR_TEXTURE_SAMPLES, &mut max_tex_samples);
         }
         let max_samples: u8 = max_samples as u8;
-        let samples: u8 = match max_samples > max_tex_samples as u8 {
-            true => max_tex_samples as u8,
-            false => max_samples,
-        };
-        let framerate: f32 = 60.0;
+        let samples: u8 = max_samples.max(max_tex_samples as u8);
+        let framerate: i32 = 60;
         let time: f32 = 0.0;
         let max_time: f32 = 0.0;
+        let vflip: bool = false;
         let latest_gravity: f32 = 1.0;
         let gravity: f32 = 1.0;
+        let ol_show: bool = true;
+        let ol_width: f32 = 0.0001;
+        let note_show: bool = true;
+        let particle_show: bool = true;
+        let particle_density: u32 = 3000;
         let preview_speed: f32 = 1.0;
         let midi_file: String = "test.mid".to_owned();
         let mp4_file: String = "output.mp4".to_owned();
         let png_file: String = "output.png".to_owned();
         let clear_dir: bool = false;
         let index_file: String = "pianorium_index.txt".to_owned();
-        let octave_line: f32 = 0.0001;
         let ol_color: Hsva = Hsva {
             h: 0.2,
             s: 0.3,
@@ -136,12 +144,6 @@ impl Default for Parameters {
             v: 1.0,
             a: 1.0,
         };
-        let note_time: Hsva = Hsva {
-            h: 0.7,
-            s: 0.5,
-            v: 0.5,
-            a: 1.0,
-        };
         let particle_left: Hsva = Hsva {
             h: 0.66,
             s: 0.31,
@@ -166,29 +168,25 @@ impl Default for Parameters {
             v: 1.0,
             a: 1.0,
         };
-        let particle_time: Hsva = Hsva {
-            h: 0.75,
-            s: 0.5,
-            v: 0.5,
-            a: 1.0,
-        };
+        let particle_transparency: f32 = 0.5;
 
         let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
+        let u_vflip: Uniform = Uniform::new(program.id, "u_vflip").unwrap();
         let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
         let u_ol_color: Uniform = Uniform::new(program.id, "u_ol_color").unwrap();
         let u_note_left: Uniform = Uniform::new(program.id, "u_note_left").unwrap();
         let u_note_right: Uniform = Uniform::new(program.id, "u_note_right").unwrap();
         let u_note_top: Uniform = Uniform::new(program.id, "u_note_top").unwrap();
         let u_note_bottom: Uniform = Uniform::new(program.id, "u_note_bottom").unwrap();
-        let u_note_time: Uniform = Uniform::new(program.id, "u_note_time").unwrap();
         let u_particle_left: Uniform = Uniform::new(program.id, "u_particle_left").unwrap();
         let u_particle_right: Uniform = Uniform::new(program.id, "u_particle_right").unwrap();
         let u_particle_top: Uniform = Uniform::new(program.id, "u_particle_top").unwrap();
         let u_particle_bottom: Uniform = Uniform::new(program.id, "u_particle_bottom").unwrap();
-        let u_particle_time: Uniform = Uniform::new(program.id, "u_particle_time").unwrap();
+        let u_particle_transparency: Uniform = Uniform::new(program.id, "u_particle_transparency").unwrap();
 
         unsafe {
             gl::Uniform1f(u_time.id, 0.0);
+            gl::Uniform1i(u_vflip.id, vflip as i32);
             gl::Uniform2f(u_resolution.id, width as f32, height as f32);
             gl::Uniform3f(
                 u_ol_color.id,
@@ -221,12 +219,6 @@ impl Default for Parameters {
                 note_bottom.to_rgb()[2],
             );
             gl::Uniform3f(
-                u_note_time.id,
-                note_time.to_rgb()[0],
-                note_time.to_rgb()[1],
-                note_time.to_rgb()[2],
-            );
-            gl::Uniform3f(
                 u_particle_left.id,
                 particle_left.to_rgb()[0],
                 particle_left.to_rgb()[1],
@@ -250,12 +242,7 @@ impl Default for Parameters {
                 particle_bottom.to_rgb()[1],
                 particle_bottom.to_rgb()[2],
             );
-            gl::Uniform3f(
-                u_particle_time.id,
-                particle_time.to_rgb()[0],
-                particle_time.to_rgb()[1],
-                particle_time.to_rgb()[2],
-            );
+            gl::Uniform1f(u_particle_transparency.id, particle_transparency);
         }
         Parameters {
             bytes,
@@ -272,43 +259,46 @@ impl Default for Parameters {
             preview_speed,
             latest_gravity,
             gravity,
+            ol_show,
+            ol_width,
+            note_show,
+            particle_show,
+            particle_density,
             midi_file,
             mp4_file,
             png_file,
             clear_dir,
             bg,
-            octave_line,
-            ol_color,
             alpha,
-
+            
             program,
-
+            
             time,
-
+            vflip,
+            ol_color,
             note_left,
             note_right,
             note_top,
             note_bottom,
-            note_time,
             particle_left,
             particle_right,
             particle_top,
             particle_bottom,
-            particle_time,
+            particle_transparency,
 
             u_time,
+            u_vflip,
             u_resolution,
             u_ol_color,
             u_note_left,
             u_note_right,
             u_note_top,
             u_note_bottom,
-            u_note_time,
             u_particle_left,
             u_particle_right,
             u_particle_top,
             u_particle_bottom,
-            u_particle_time,
+            u_particle_transparency,
         }
     }
 }
