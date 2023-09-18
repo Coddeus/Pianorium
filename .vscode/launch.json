@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug",
+            "type": "cppvsdbg",
+            // Linux, MacOS: "cppdbg"
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/pianorium.exe",
+            // Linux, MacOS: "${workspaceFolder}/target/debug/pianorium"
+            "environment": [{
+                "name": "RUST_BACKTRACE", "value": "1",
+            }],
+            "args": [
+                
+            ],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "cargo build"
+        },
+        {
+            "name": "Release",
+            "type": "cppvsdbg",
+            // Linux, MacOS: "cppdbg"
+            "request": "launch",
+            "program": "${workspaceFolder}/target/release/pianorium.exe",
+            // Linux, MacOS: "${workspaceFolder}/target/release/pianorium"
+            "args": [
+                
+            ],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "cargo build release"
+        }
+    ]
+}

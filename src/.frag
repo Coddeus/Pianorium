@@ -7,7 +7,17 @@ in VS_OUTPUT {
 out vec4 Color;
 
 uniform float u_time;
+uniform float u_particle_transparency;
 uniform vec2 u_resolution;
+uniform vec3 u_ol_color;
+uniform vec3 u_note_left;
+uniform vec3 u_note_right;
+uniform vec3 u_note_top;
+uniform vec3 u_note_bottom;
+uniform vec3 u_particle_left;
+uniform vec3 u_particle_right;
+uniform vec3 u_particle_top;
+uniform vec3 u_particle_bottom;
 
 mat2 rotate(float angle)
 {
@@ -19,11 +29,15 @@ mat2 rotate(float angle)
 
 void main()
 {
-    if (IN.Color>0.5) {
-        Color = vec4((IN.Position.x+1.0)/4.0, 0.1098, 0.1098, 1.0);
+    vec2 uv = vec2(u_resolution.x*IN.Position.x, u_resolution.y*IN.Position.y); 
+
+    // Note border
+    if (IN.Color == 1.0) {
+        Color = vec4((mix(u_note_left, u_note_right, (IN.Position.x+1.0)/2.0) * mix(u_note_bottom, u_note_top, (IN.Position.y+1.0)/2.0))*0.5, 1.0);
     } 
-    else {  
-        Color = vec4(0.5+(IN.Position.x+1.0)/4.0, 0.1098, 0.1098, 1.0);
+    // Inner note
+    else if (IN.Color == 0.9) {  
+        Color = vec4((mix(u_note_left, u_note_right, (IN.Position.x+1.0)/2.0) * mix(u_note_bottom, u_note_top, (IN.Position.y+1.0)/2.0)), 1.0);
 
         /* // Shader Art by lukasxl on ShaderToy
         vec2 uv = IN.Position.xy*vec2(u_resolution.x/u_resolution.y, 1.0); 
@@ -53,5 +67,13 @@ void main()
 
         Color = result * d;
         */
+    }
+    // Particle
+    else if (IN.Color == 0.8) {
+        Color = vec4((mix(u_particle_left, u_particle_right, (IN.Position.x+1.0)/2.0) * mix(u_particle_bottom, u_particle_top, (IN.Position.y+1.0)/2.0)), u_particle_transparency);
+    }
+    // Octave line
+    else if (IN.Color == 0.7) {
+        Color = vec4(u_ol_color, 1.0);
     }
 }
