@@ -20,6 +20,7 @@ pianorium_index.txt
 *.hevc
 *.m4a
 *.mkv
+*.avi
 
 # Flamegraphs
 *.svg
@@ -37,3 +38,7 @@ vcpkg_installed
 ffmpeg
 SDL2-2.28.2
 *.dll
+
+# icon (doesn't work)
+*.rc
+*.res

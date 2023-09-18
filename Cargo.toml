@@ -1,7 +1,12 @@
 [package]
 name = "pianorium"
-version = "0.1.0"
+version = "0.3.0"
+authors = ["Coddeus"]
 edition = "2021"
+description = "A customizable midi visualizer/renderer for piano performances"
+license = "GPL-3.0-only"
+keywords = ["piano", "graphics", "midi", "rendering", "lossless"]
+categories = ["encoding", "graphics", "gui", "multimedia::video", "rendering::graphics-api"]
 
 [dependencies]
 ffmpeg-next = "*"
@@ -9,6 +14,7 @@ egui_sdl2_gl = { version = "0.16.0", features = ["sdl2_static-link"] }
 midly = "*"
 num_cpus = "*"
 rand = "*"
+native-dialog = "*"
 
 [profile.release]
 codegen-units = 1
