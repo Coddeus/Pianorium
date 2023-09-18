@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::gl;
 use egui_sdl2_gl::{
     egui::{color::Hsva, color_picker::Alpha},
@@ -17,7 +19,7 @@ pub struct Parameters {
     pub bytes: usize,
     pub max_cores: usize,
     pub max_time: f32,
-    pub index_file: String,
+    pub index_file: PathBuf,
 
     pub width: usize,
     pub height: usize,
@@ -33,9 +35,10 @@ pub struct Parameters {
     pub particle_show: bool,
     pub particle_density: u32,
     pub preview_speed: f32,
-    pub midi_file: String,
-    pub mp4_file: String,
-    pub png_file: String,
+    pub midi_file: PathBuf,
+    pub mkv_file: String,
+    pub png_file: PathBuf,
+    pub x264_preset: String,
     pub clear_dir: bool,
     pub bg: Hsva,
     pub alpha: Alpha,
@@ -98,11 +101,12 @@ impl Default for Parameters {
         let particle_show: bool = true;
         let particle_density: u32 = 3000;
         let preview_speed: f32 = 1.0;
-        let midi_file: String = "test.mid".to_owned();
-        let mp4_file: String = "output.mp4".to_owned();
-        let png_file: String = "output.png".to_owned();
+        let midi_file: PathBuf = PathBuf::from("input.mid");
+        let mkv_file: String = String::from("output.mkv");
+        let png_file: PathBuf = PathBuf::from("output.png");
+        let x264_preset: String = "medium".to_owned();
         let clear_dir: bool = false;
-        let index_file: String = "pianorium_index.txt".to_owned();
+        let index_file: PathBuf = PathBuf::from("pianorium_index.txt");
         let ol_color: Hsva = Hsva {
             h: 0.2,
             s: 0.3,
@@ -182,7 +186,8 @@ impl Default for Parameters {
         let u_particle_right: Uniform = Uniform::new(program.id, "u_particle_right").unwrap();
         let u_particle_top: Uniform = Uniform::new(program.id, "u_particle_top").unwrap();
         let u_particle_bottom: Uniform = Uniform::new(program.id, "u_particle_bottom").unwrap();
-        let u_particle_transparency: Uniform = Uniform::new(program.id, "u_particle_transparency").unwrap();
+        let u_particle_transparency: Uniform =
+            Uniform::new(program.id, "u_particle_transparency").unwrap();
 
         unsafe {
             gl::Uniform1f(u_time.id, 0.0);
@@ -265,14 +270,15 @@ impl Default for Parameters {
             particle_show,
             particle_density,
             midi_file,
-            mp4_file,
+            mkv_file,
             png_file,
+            x264_preset,
             clear_dir,
             bg,
             alpha,
-            
+
             program,
-            
+
             time,
             vflip,
             ol_color,

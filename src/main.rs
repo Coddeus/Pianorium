@@ -1,8 +1,9 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 extern crate egui_sdl2_gl;
 extern crate ffmpeg_next as ff;
 extern crate midly;
+extern crate native_dialog;
 extern crate num_cpus;
 extern crate rand;
 
@@ -14,11 +15,32 @@ pub use layout::{BLACK, LAYOUT};
 pub mod video_builder;
 pub use video_builder::VideoBuilder;
 
+use native_dialog::FileDialog;
 /// Creates a new `Pianorium`, plays the chosen song, renders it, and ends.
 fn main() {
-    let mut p = Pianorium::new().unwrap();
-    p.play().unwrap();
-    p.full_mp4().unwrap();
+    let path = FileDialog::new()
+        .set_location(&std::env::current_dir().unwrap())
+        .add_filter("MIDI File", &["mid"])
+        .show_open_single_file()
+        .unwrap();
+
+    let path = match path {
+        Some(path) => path,
+        None => return,
+    };
+    println!("Opening midi file: {:?}", path);
+
+    let mut pianorium = Pianorium::new().unwrap();
+
+    pianorium.p.midi_file = path;
+    (pianorium.notes, pianorium.p.max_time) =
+        Notes::from_midi(800 as f32 / 600 as f32, 1.0, &pianorium.p.midi_file).unwrap();
+    pianorium.vbo.set(&pianorium.notes.vert);
+    pianorium.vao.set();
+    pianorium.ibo.set(&pianorium.notes.ind);
+
+    pianorium.play().unwrap();
+    pianorium.full_mp4().unwrap();
     // p.full_png().unwrap();
 }
 
@@ -41,6 +63,7 @@ use std::{
     ffi::{CStr, CString},
     fs::{create_dir, remove_dir_all, remove_file, File},
     io::Read,
+    path::PathBuf,
     ptr::{null, null_mut},
     slice::from_raw_parts,
     time::Instant,
@@ -124,22 +147,18 @@ impl Pianorium {
         }
         let event_pump: sdl2::EventPump = sdl.event_pump().unwrap();
 
-        let mut p: Parameters = Parameters::default();
+        let p: Parameters = Parameters::default();
 
         let frame_count: usize = 0;
 
         let ol: Ol = Ol::create(p.ol_width).unwrap();
-        let (notes, max_time) = Notes::from_midi(800 as f32 / 600 as f32, 1.0, "test.mid").unwrap();
+        let notes = Notes::new();
         let particles: Particles = Particles::new();
 
-        p.max_time = max_time;
-
         let vbo: Vbo = Vbo::gen();
-        vbo.set(&notes.vert);
         let vao: Vao = Vao::gen();
         vao.set();
         let ibo: Ibo = Ibo::gen();
-        ibo.set(&notes.ind);
 
         let gui: Gui = Gui::new(&window).unwrap();
 
@@ -265,10 +284,19 @@ impl Pianorium {
                     self.p.particle_bottom.to_rgb()[1],
                     self.p.particle_bottom.to_rgb()[2],
                 );
-                gl::Uniform1f(self.p.u_particle_transparency.id, self.p.particle_transparency);
+                gl::Uniform1f(
+                    self.p.u_particle_transparency.id,
+                    self.p.particle_transparency,
+                );
             }
             self.notes.update(time_diff * self.p.gravity);
-            if self.p.particle_show { self.particles.update(time_diff * self.p.gravity, &self.notes.vert, self.p.particle_density as f32); }
+            if self.p.particle_show {
+                self.particles.update(
+                    time_diff * self.p.gravity,
+                    &self.notes.vert,
+                    self.p.particle_density as f32,
+                );
+            }
             unsafe {
                 gl::Enable(gl::BLEND);
                 gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -276,7 +304,9 @@ impl Pianorium {
             }
             self.draw();
 
-            if self.draw_gui() { break 'play };
+            if self.draw_gui() {
+                break 'play;
+            };
             // if draw_gui { if self.draw_gui() { break 'play }; }
             // self.draw_hider() // -> GUI that controls whether othe GUI components are visible.
             rgb = self.p.bg.to_rgb();
@@ -338,6 +368,8 @@ impl Pianorium {
 
     /// Renders the whole song to an output file, in the background.
     pub fn full_mp4(&mut self) -> Result<(), String> {
+        #[cfg(debug_assertions)]
+        let init_time = Instant::now();
         self.particles = Particles::new();
         self.to_start();
         self.window
@@ -369,7 +401,7 @@ impl Pianorium {
         unsafe {
             let rgb: [f32; 3] = self.p.bg.to_rgb();
             gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
-            gl::Uniform1i(self.p.u_vflip.id, (self.p.vflip as i32+1)%2);
+            gl::Uniform1i(self.p.u_vflip.id, (self.p.vflip as i32 + 1) % 2);
             gl::Uniform3f(
                 self.p.u_ol_color.id,
                 self.p.ol_color.to_rgb()[0],
@@ -424,7 +456,10 @@ impl Pianorium {
                 self.p.particle_bottom.to_rgb()[1],
                 self.p.particle_bottom.to_rgb()[2],
             );
-            gl::Uniform1f(self.p.u_particle_transparency.id, self.p.particle_transparency);
+            gl::Uniform1f(
+                self.p.u_particle_transparency.id,
+                self.p.particle_transparency,
+            );
         }
 
         let mut data_ptr: [*mut u8; 2] = [null_mut(), null_mut()];
@@ -434,10 +469,10 @@ impl Pianorium {
         // Those are or encoder. information to give here ?
         // metadata.insert("preset".to_owned(), "ultrafast".to_owned());
         // metadata.insert("crf".to_owned(), "0".to_owned());
-        
-        // User choice between compression and speed (and quality). (as well as HW usage) 
+
+        // User choice between compression and speed (and quality). (as well as HW usage)
         let options = VideoOptions {
-            output_path: "output.mkv".to_owned(),
+            output_path: self.p.mkv_file.clone(),
             metadata,
             video_time_base: Rational(1, self.p.framerate),
             video_codec: "libx264rgb".to_owned(),
@@ -447,7 +482,7 @@ impl Pianorium {
             resolution_in: (self.p.width as u32, self.p.height as u32),
             resolution_out: (self.p.width as u32, self.p.height as u32),
         };
-        let mut encoder = VideoBuilder::new(options).unwrap();
+        let mut encoder = VideoBuilder::new(options, &self.p.x264_preset).unwrap();
         encoder.start_encoding().unwrap();
 
         let pbo = Pbo::gen();
@@ -491,8 +526,11 @@ impl Pianorium {
         #[cfg(debug_assertions)]
         println!("Blit: {:?}", time.elapsed());
 
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+
         fbo.bind(gl::FRAMEBUFFER, fbo.s);
-        pbo.set(self.p.width * self.p.height * 3);
+        pbo.set(self.p.bytes); // 2 parallel PBOs ?
         unsafe {
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }
@@ -510,10 +548,58 @@ impl Pianorium {
         println!("Map ptr: {:?}", data_ptr[0]);
         #[cfg(debug_assertions)]
         println!("Map: {:?}", time.elapsed());
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
 
         pbo.unmap();
 
+        #[cfg(debug_assertions)]
+        println!("Unmap: {:?}", time.elapsed());
+
+        unsafe {
+            gl::Uniform1f(self.p.u_time.id, self.p.time);
+        }
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+
+        fbo.bind(gl::FRAMEBUFFER, fbo.m);
+        self.draw();
+
+        #[cfg(debug_assertions)]
+        println!("Draw: {:?}", time.elapsed());
+
+        #[cfg(debug_assertions)]
+        let time = Instant::now();
+
+        fbo.bind(gl::READ_FRAMEBUFFER, fbo.m);
+        fbo.bind(gl::DRAW_FRAMEBUFFER, fbo.s);
+        unsafe {
+            gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        }
+        unsafe {
+            gl::BlitFramebuffer(
+                0,
+                0,
+                self.p.width as GLint,
+                self.p.height as GLint,
+                0,
+                0,
+                self.p.width as GLint,
+                self.p.height as GLint,
+                gl::COLOR_BUFFER_BIT,
+                gl::NEAREST,
+            );
+        }
+
+        #[cfg(debug_assertions)]
+        println!("Blit: {:?}", time.elapsed());
+
+        #[cfg(debug_assertions)]
+        println!("Frame {:06}: {:?}\n", 0, init_time.elapsed());
+
         'record: loop {
+            let full_time = Instant::now();
             // ALSO DRAW THE NEXT FRAME WHILE MAPPING
             for event in self.event_pump.poll_iter() {
                 match event {
@@ -521,6 +607,50 @@ impl Pianorium {
                     _ => {}
                 }
             }
+
+            #[cfg(debug_assertions)]
+            let time = Instant::now();
+
+            fbo.bind(gl::FRAMEBUFFER, fbo.s);
+            pbo.set(self.p.bytes); // 2 parallel PBOs ?
+            unsafe {
+                gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+            }
+            self.read();
+
+            #[cfg(debug_assertions)]
+            println!("Read: {:?}", time.elapsed());
+
+            #[cfg(debug_assertions)]
+            let time = Instant::now();
+
+            let encodeindex = self.frame_count % 2;
+            let readindex = (self.frame_count + 1) % 2;
+            #[cfg(debug_assertions)]
+            println!("Encode pointer: {:?}", data_ptr[encodeindex]);
+            #[cfg(debug_assertions)]
+            println!("Read pointer: {:?}", data_ptr[readindex]);
+
+            encoder
+                .push_video_data(unsafe { from_raw_parts(data_ptr[encodeindex], self.p.bytes) })
+                .unwrap();
+            encoder.step_encoding().unwrap();
+
+            #[cfg(debug_assertions)]
+            println!("Encode: {:?}", time.elapsed());
+            #[cfg(debug_assertions)]
+            let time = Instant::now();
+
+            data_ptr[readindex] = pbo.map().cast();
+
+            #[cfg(debug_assertions)]
+            println!("Map ptr: {:?}", data_ptr[readindex]);
+            #[cfg(debug_assertions)]
+            println!("Map: {:?}", time.elapsed());
+
+            #[cfg(debug_assertions)]
+            let time = Instant::now();
+
             self.p.time += 1.0 / self.p.framerate as f32 * self.p.gravity;
 
             if self.p.time > self.p.max_time {
@@ -531,10 +661,19 @@ impl Pianorium {
             }
 
             #[cfg(debug_assertions)]
+            println!("frame_count-related updates: {:?}", time.elapsed());
+            #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            self.notes.update(1.0 / self.p.framerate as f32 * self.p.gravity);
-            if self.p.particle_show { self.particles.update(1.0 / self.p.framerate as f32 * self.p.gravity, &self.notes.vert, self.p.particle_density as f32); }
+            self.notes
+                .update(1.0 / self.p.framerate as f32 * self.p.gravity);
+            if self.p.particle_show {
+                self.particles.update(
+                    1.0 / self.p.framerate as f32 * self.p.gravity,
+                    &self.notes.vert,
+                    self.p.particle_density as f32,
+                );
+            }
 
             #[cfg(debug_assertions)]
             println!("Update: {:?}", time.elapsed());
@@ -547,7 +686,6 @@ impl Pianorium {
 
             #[cfg(debug_assertions)]
             println!("Draw: {:?}", time.elapsed());
-
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
@@ -573,48 +711,17 @@ impl Pianorium {
 
             #[cfg(debug_assertions)]
             println!("Blit: {:?}", time.elapsed());
-
             #[cfg(debug_assertions)]
             let time = Instant::now();
-
-            let readindex = (self.frame_count + 1) % 2;
-            let encodeindex = self.frame_count % 2;
-
-            fbo.bind(gl::FRAMEBUFFER, fbo.s);
-            pbo.set(self.p.bytes);
-            unsafe {
-                gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-            }
-            self.read();
-
-            #[cfg(debug_assertions)]
-            println!("Read: {:?}", time.elapsed());
-
-            #[cfg(debug_assertions)]
-            let time = Instant::now();
-
-            println!("{:?}", data_ptr[readindex]);
-            encoder
-                .push_video_data(unsafe { from_raw_parts(data_ptr[encodeindex], self.p.bytes) })
-                .unwrap();
-            encoder.step_encoding().unwrap();
-
-            #[cfg(debug_assertions)]
-            println!("Encode: {:?}", time.elapsed());
-
-            #[cfg(debug_assertions)]
-            let time = Instant::now();
-
-            data_ptr[readindex] = pbo.map().cast();
-
-            #[cfg(debug_assertions)]
-            println!("Map ptr: {:?}", data_ptr[readindex]);
-            #[cfg(debug_assertions)]
-            println!("Map: {:?}", time.elapsed());
 
             pbo.unmap();
 
+            #[cfg(debug_assertions)]
+            println!("Unmap: {:?}", time.elapsed());
+
             self.frame_count += 1;
+
+            println!("Frame {:06}: {:?}", self.frame_count, full_time.elapsed());
         }
 
         encoder.finish_encoding().unwrap();
@@ -625,13 +732,13 @@ impl Pianorium {
     // /// [NOT IMPLEMENTED YET] Renders a PNG of the full song.
     // fn full_png(&mut self) -> Result<(), String> {
     //     // let ogl = self.handles.remove(0).join().unwrap();
-    // 
+    //
     //     self.to_start();
     //     self.particles = Particles::new();
     //     for y in self.notes.vert.iter_mut().skip(1).step_by(3) {
     //         *y = (*y / self.p.max_time as f32 - 0.5) * 2.;
     //     }
-    // 
+    //
     //     unsafe {
     //         gl::Uniform1f(self.p.u_time.id, 0.0);
     //     }
@@ -646,28 +753,30 @@ impl Pianorium {
     //     // self.renderer.frame += self.renderer.cores;
     //     // });
     //     // self.renderer = OpenGLContext::new(self.p.width, self.p.height, self.p.framerate, self.p.cores, &self.p.midi_file);
-    // 
+    //
     //     // self.handles.insert(0, std::thread::spawn(move ||{ ogl }));
-    // 
+    //
     //     Ok(())
     // }
 
-    /// Draws the GUI. The return value specifes whether 
+    /// Draws the GUI. The return value specifes whether
     fn draw_gui(&mut self) -> bool {
         let mut start: bool = false;
-        egui::Window::new("Preview").show(&self.gui.egui_ctx, |ui| {
-            egui::Grid::new("Preview").show(ui, |ui| {
-                ui.label("Preview speed:");
-                ui.add(egui::Slider::new(&mut self.p.preview_speed, -100.0..=100.0));
-                ui.end_row();
+        egui::Window::new("Preview")
+            .default_pos((10., 10.))
+            .show(&self.gui.egui_ctx, |ui| {
+                egui::Grid::new("Preview").show(ui, |ui| {
+                    ui.label("Preview speed:");
+                    ui.add(egui::Slider::new(&mut self.p.preview_speed, -100.0..=100.0));
+                    ui.end_row();
 
-                ui.label("Restart preview: ");
-                if ui.add(egui::Button::new("Restart")).clicked() {
-                    self.notes.update(-self.p.time * self.p.gravity);
-                    self.p.time = 0.;
-                    self.particles = Particles::new();
-                }
-                ui.end_row();
+                    ui.label("Restart preview: ");
+                    if ui.add(egui::Button::new("Restart")).clicked() {
+                        self.notes.update(-self.p.time * self.p.gravity);
+                        self.p.time = 0.;
+                        self.particles = Particles::new();
+                    }
+                    ui.end_row();
             });
         });
         egui::Window::new("General").show(&self.gui.egui_ctx, |ui| {
@@ -719,28 +828,55 @@ impl Pianorium {
                 ui.end_row();
             });
         });
-        egui::Window::new("Background").show(&self.gui.egui_ctx, |ui| {
-            egui::Grid::new("Background").show(ui, |ui| {
-                ui.label("Color:");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.bg,
-                    self.p.alpha,
-                );
+        egui::Window::new("Files").show(&self.gui.egui_ctx, |ui| {
+            egui::Grid::new("Files").show(ui, |ui| {
+                ui.label("Input .mid file: ");
+                if ui.add(egui::Button::new("Browse…")).clicked() {
+                    let path = FileDialog::new()
+                        .set_location(&std::env::current_dir().unwrap())
+                        .add_filter("MIDI File", &["mid"])
+                        .show_open_single_file()
+                        .unwrap();
+
+                    let path = match path {
+                        Some(path) => path,
+                        None => return,
+                    };
+                    println!("{:?}", path);
+                    
+                    self.p.midi_file = path;
+                    (self.notes, self.p.max_time) =
+                        Notes::from_midi(800 as f32 / 600 as f32, 1.0, &self.p.midi_file).unwrap();
+                    self.vbo.set(&self.notes.vert);
+                    self.vao.set();
+                    self.ibo.set(&self.notes.ind);
+                    self.p.time = 0.;
+                }
                 ui.end_row();
 
-                // ui.label("Image: ");
-                // if ui.add(egui::Button::new("Find")).clicked() {
-                //     // self.notes.update(-self.p.time * self.p.gravity);
-                //     // self.p.time = 0.;
-                //     // self.frame = 0;
-                //     // self.particles = Particles::new();
-                // }
-                // ui.end_row();
+                ui.label("Output (.mkv or .avi): ");
+                ui.add(egui::TextEdit::singleline(&mut self.p.mkv_file));
+                ui.end_row();
             });
         });
         egui::Window::new("Render").show(&self.gui.egui_ctx, |ui| {
             egui::Grid::new("Render").show(ui, |ui| {
+                ui.label("Speed vs Compression: ");
+                egui::ComboBox::from_label("")
+                    .selected_text(format!("{:?}", self.p.x264_preset))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.p.x264_preset, "ultrafast".to_owned(), "Ultrafast");
+                        ui.selectable_value(&mut self.p.x264_preset, "superfast".to_owned(), "Superfast");
+                        ui.selectable_value(&mut self.p.x264_preset, "veryfast".to_owned(), "Veryfast");
+                        ui.selectable_value(&mut self.p.x264_preset, "faster".to_owned(), "Faster");
+                        ui.selectable_value(&mut self.p.x264_preset, "fast".to_owned(), "Fast");
+                        ui.selectable_value(&mut self.p.x264_preset, "medium".to_owned(), "Medium");
+                        ui.selectable_value(&mut self.p.x264_preset, "slow".to_owned(), "Slow");
+                        ui.selectable_value(&mut self.p.x264_preset, "slower".to_owned(), "Slower");
+                        ui.selectable_value(&mut self.p.x264_preset, "veryslow".to_owned(), "Veryslow");
+                    });
+                ui.end_row();
+
                 ui.label("✨ Start rendering: ");
                 if ui.add(egui::Button::new("Start")).clicked() {
                     start = true;
@@ -748,58 +884,60 @@ impl Pianorium {
                 ui.end_row();
             });
         });
-        egui::Window::new("Notes").show(&self.gui.egui_ctx, |ui| {
-            egui::Grid::new("Notes").show(ui, |ui| {
-                ui.label("Show:");
-                ui.add(egui::Checkbox::new(&mut self.p.note_show, ""));
-                ui.end_row();
-                ui.label("Gravity:");
-                if ui
-                    .add(egui::Slider::new(&mut self.p.gravity, 0.3..=2.0))
-                    .changed()
-                {
-                    self.notes
-                        .notes_to_vertices(
-                            self.p.width as f32 / self.p.height as f32,
-                            self.p.gravity,
-                        )
-                        .unwrap();
-                    self.notes.update(self.p.time * self.p.gravity);
-                    self.p.latest_gravity = self.p.gravity;
-                };
-                ui.end_row();
+        egui::Window::new("Notes")
+            .default_pos((300., 10.))
+            .show(&self.gui.egui_ctx, |ui| {
+                egui::Grid::new("Notes").show(ui, |ui| {
+                    ui.label("Show:");
+                    ui.add(egui::Checkbox::new(&mut self.p.note_show, ""));
+                    ui.end_row();
+                    ui.label("Gravity:");
+                    if ui
+                        .add(egui::Slider::new(&mut self.p.gravity, 0.3..=2.0))
+                        .changed()
+                    {
+                        self.notes
+                            .notes_to_vertices(
+                                self.p.width as f32 / self.p.height as f32,
+                                self.p.gravity,
+                            )
+                            .unwrap();
+                        self.notes.update(self.p.time * self.p.gravity);
+                        self.p.latest_gravity = self.p.gravity;
+                    };
+                    ui.end_row();
 
-                ui.label("Color - Left");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.note_left,
-                    self.p.alpha,
-                );
-                ui.end_row();
+                    ui.label("Color - Left");
+                    egui::widgets::color_picker::color_edit_button_hsva(
+                        ui,
+                        &mut self.p.note_left,
+                        self.p.alpha,
+                    );
+                    ui.end_row();
 
-                ui.label("Color - Right");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.note_right,
-                    self.p.alpha,
-                );
-                ui.end_row();
+                    ui.label("Color - Right");
+                    egui::widgets::color_picker::color_edit_button_hsva(
+                        ui,
+                        &mut self.p.note_right,
+                        self.p.alpha,
+                    );
+                    ui.end_row();
 
-                ui.label("Color - Top");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.note_top,
-                    self.p.alpha,
-                );
-                ui.end_row();
+                    ui.label("Color - Top");
+                    egui::widgets::color_picker::color_edit_button_hsva(
+                        ui,
+                        &mut self.p.note_top,
+                        self.p.alpha,
+                    );
+                    ui.end_row();
 
-                ui.label("Color - Bottom");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.note_bottom,
-                    self.p.alpha,
-                );
-                ui.end_row();
+                    ui.label("Color - Bottom");
+                    egui::widgets::color_picker::color_edit_button_hsva(
+                        ui,
+                        &mut self.p.note_bottom,
+                        self.p.alpha,
+                    );
+                    ui.end_row();
             });
         });
         egui::Window::new("Particles").show(&self.gui.egui_ctx, |ui| {
@@ -813,7 +951,10 @@ impl Pianorium {
                 ui.end_row();
 
                 ui.label("Transparency:");
-                ui.add(egui::Slider::new(&mut self.p.particle_transparency, 0.0..=1.0));
+                ui.add(egui::Slider::new(
+                    &mut self.p.particle_transparency,
+                    0.0..=1.0,
+                ));
                 ui.end_row();
 
                 ui.label("Color - Left");
@@ -849,19 +990,43 @@ impl Pianorium {
                 ui.end_row();
             });
         });
-        egui::Window::new("Octave lines").show(&self.gui.egui_ctx, |ui| {
-            egui::Grid::new("Octave lines").show(ui, |ui| {
-                ui.label("Show:");
-                ui.add(egui::Checkbox::new(&mut self.p.ol_show, ""));
-                ui.end_row();
+        egui::Window::new("Octave lines")
+            .default_pos((580., 10.))
+            .show(&self.gui.egui_ctx, |ui| {
+                egui::Grid::new("Octave lines").show(ui, |ui| {
+                    ui.label("Show:");
+                    ui.add(egui::Checkbox::new(&mut self.p.ol_show, ""));
+                    ui.end_row();
 
-                ui.label("Color");
-                egui::widgets::color_picker::color_edit_button_hsva(
-                    ui,
-                    &mut self.p.ol_color,
-                    self.p.alpha,
-                );
-                ui.end_row();
+                    ui.label("Color");
+                    egui::widgets::color_picker::color_edit_button_hsva(
+                        ui,
+                        &mut self.p.ol_color,
+                        self.p.alpha,
+                    );
+                    ui.end_row();
+            });
+        });
+        egui::Window::new("Background")
+            .default_pos((580., 105.))
+            .show(&self.gui.egui_ctx, |ui| {
+                egui::Grid::new("Background").show(ui, |ui| {
+                    ui.label("Color:");
+                    egui::widgets::color_picker::color_edit_button_hsva(
+                        ui,
+                        &mut self.p.bg,
+                        self.p.alpha,
+                    );
+                    ui.end_row();
+
+                    // ui.label("Image: ");
+                    // if ui.add(egui::Button::new("Find")).clicked() {
+                    //     // self.notes.update(-self.p.time * self.p.gravity);
+                    //     // self.p.time = 0.;
+                    //     // self.frame = 0;
+                    //     // self.particles = Particles::new();
+                    // }
+                    // ui.end_row();
             });
         });
         start
@@ -869,7 +1034,7 @@ impl Pianorium {
 
     /// Draw the GUI for the last frame, which won't be updated
     fn draw_last(&mut self) {
-        egui::Window::new("Pianorium").show(&self.gui.egui_ctx, |ui| {
+        egui::Window::new("Pianorium").default_pos((500., 500.)).show(&self.gui.egui_ctx, |ui| {
             ui.label("Rendering started. This window will exit when the rendering finishes.");
             ui.label("Closing this window manually would stop the rendering.");
             ui.label(
@@ -919,9 +1084,15 @@ impl Pianorium {
         unsafe {
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            if self.p.ol_show { self.draw_ol(); }
-            if self.p.note_show { self.draw_notes(); }
-            if self.p.particle_show { self.draw_particles(); }
+            if self.p.ol_show {
+                self.draw_ol();
+            }
+            if self.p.note_show {
+                self.draw_notes();
+            }
+            if self.p.particle_show {
+                self.draw_particles();
+            }
         }
     }
 
@@ -1071,10 +1242,18 @@ pub struct Notes {
 }
 
 impl Notes {
+    pub fn new() -> Self {
+        Notes {
+            notes: vec![],
+            vert: vec![],
+            ind: vec![],
+        }
+    }
+
     pub fn from_midi(
         wh_ratio: f32,
         gravity: f32,
-        midi_file: &str,
+        midi_file: &PathBuf,
     ) -> std::io::Result<(Notes, f32)> {
         // Done Twice instead of just ….clone().iter_mut { +0.5 }
         let mut notes: Vec<Note> = vec![];
@@ -1109,7 +1288,7 @@ impl Notes {
         let mut max_time: f32 = 0.0;
 
         for track in midi_data.tracks.iter() {
-            let mut current_time: f32 = 2.;
+            let mut current_time: f32 = 2.5 / gravity;
             for event in track.iter() {
                 current_time += <u28 as Into<u32>>::into(event.delta) as f32 * spt;
                 match event.kind {
@@ -1168,7 +1347,7 @@ impl Notes {
                             }
                             EndOfTrack => {
                                 // Know when the render finishes
-                                max_time = current_time + 2.;
+                                max_time = current_time + 4. / gravity;
                             }
                             _ => {}
                         }
@@ -2055,7 +2234,7 @@ fn egui_set_theme(ctx: &egui::Context, theme: Theme) {
         },
         window_shadow: epaint::Shadow {
             color: theme.base,
-            extrusion: 20.0
+            extrusion: 20.0,
         },
         popup_shadow: epaint::Shadow {
             color: theme.base,

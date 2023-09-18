@@ -6,6 +6,7 @@ mod encoding;
 use std::collections::VecDeque;
 use std::{mem, slice};
 use std::str::FromStr;
+use egui_sdl2_gl::egui::TextBuffer;
 use ffmpeg_next::{self, Error, format, encoder, codec, Dictionary, software, frame};
 use video_options::VideoOptions;
 pub use vb_unwrap::VideoBuilderUnwrap;
@@ -39,7 +40,7 @@ pub struct VideoBuilder {
 }
 
 impl VideoBuilder {
-    pub fn new(options: VideoOptions) -> Result<Self, String> {
+    pub fn new(options: VideoOptions, preset: &str) -> Result<Self, String> {
         let mut out_ctx = format::output(&options.output_path).vb_unwrap()?;
 
         let mut metadata = Dictionary::new();
@@ -76,7 +77,7 @@ impl VideoBuilder {
         //     options.resolution_out
         // ).vb_unwrap()?;
 
-        let (v_encoder, v_stream_idx) = Self::create_video_encoder(options.clone(), &mut out_ctx)?;
+        let (v_encoder, v_stream_idx) = Self::create_video_encoder(options.clone(), &mut out_ctx, preset)?;
 
         Ok(Self {
             options,
@@ -91,7 +92,7 @@ impl VideoBuilder {
         })
     }
 
-    fn create_video_encoder(options: VideoOptions, out_ctx: &mut format::context::Output) -> Result<(encoder::Video, usize), String> {
+    fn create_video_encoder(options: VideoOptions, out_ctx: &mut format::context::Output, preset: &str) -> Result<(encoder::Video, usize), String> {
         let global_header = out_ctx.format().flags().contains(format::Flags::GLOBAL_HEADER);
         let output_format = format::Pixel::from_str(&options.pixel_format_out).vb_unwrap()?;
         let codec = encoder::find_by_name(&options.video_codec)
@@ -125,7 +126,7 @@ impl VideoBuilder {
         // Add some default options for certain codecs
         match codec.id() {
             codec::Id::H264 | codec::Id::H265 => {
-                context_options.set("preset", "ultrafast");
+                context_options.set("preset", preset.as_str());
                 context_options.set("crf", "0");
                 context_options.set("tune", "film");
             },
