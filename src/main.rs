@@ -1,4 +1,4 @@
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
 extern crate egui_sdl2_gl;
 extern crate ffmpeg_next as ff;
@@ -61,7 +61,7 @@ use std::{
     collections::HashMap,
     f32::consts::PI,
     ffi::{CStr, CString},
-    fs::{create_dir, remove_dir_all, remove_file, File},
+    fs::File,
     io::Read,
     path::PathBuf,
     ptr::{null, null_mut},
@@ -105,14 +105,6 @@ pub struct Pianorium {
     pub vao: Vao,
     pub ibo: Ibo,
     // pub frames: Vec<Vec<u8>>,
-}
-
-impl Drop for Pianorium {
-    fn drop(&mut self) {
-        if self.p.clear_dir {
-            Self::teardown().unwrap();
-        }
-    }
 }
 
 impl Pianorium {
@@ -161,8 +153,6 @@ impl Pianorium {
         let ibo: Ibo = Ibo::gen();
 
         let gui: Gui = Gui::new(&window).unwrap();
-
-        Self::setup().unwrap();
 
         #[cfg(debug_assertions)]
         println!("\nPianorium::new() in {:?}", time.elapsed());
@@ -1046,23 +1036,6 @@ impl Pianorium {
     // fn zero(&mut self) -> std::io::Result<()> {
     //     Ok(())
     // }
-
-    /// Sets up the filesystem
-    fn setup() -> std::io::Result<()> {
-        let _ = remove_dir_all("pianorium_temp");
-        create_dir("pianorium_temp")?;
-        Ok(())
-    }
-
-    /// Tears down the filesystem
-    fn teardown() -> std::io::Result<()> {
-        remove_dir_all("pianorium_temp")?;
-        let _ = remove_file("pianorium_index.txt");
-        let _ = remove_file("pianorium_ff_concat_mp4.log");
-        let _ = remove_file("pianorium_ff_export_mp4.log");
-        let _ = remove_file("pianorium_ff_export_png.log");
-        Ok(())
-    }
 
     /// Reads RGB from the bound FBO
     pub fn read(&mut self) {
