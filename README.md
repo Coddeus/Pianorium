@@ -18,7 +18,7 @@ You have two ways of installing this software: downloading prebuilt versions (fa
 Without compiling (MacOS unavailable): 
 - This is your first time installing: 
     - Windows: Head to [Releases](https://github.com/Coddeus/Pianorium/releases), download  pianorium-3.0.exe and libraries-dll.zip, unzip libraries-dll.zip, and put all the .dll next to pianorium-3.0.exe. Run pianorium-3.0.exe.
-    - Linux: Install ffmpeg dynamic libraries from your package manager, download pianorium-3.0 from [Releases](https://github.com/Coddeus/Pianorium/releases). Run pianorium-3.0.
+    - Linux: Install ffmpeg dynamic libraries from your package manager, download pianorium-3.0 from [Releases](https://github.com/Coddeus/Pianorium/releases). You might need to install gl and file dialog package, e.g. on Ubuntu `sudo apt-get install ffmpeg kdialog mesa-utils`. Run pianorium-3.0.
 - You already have installed a version of this software (or already have ffmpeg libraries installed):
     - Windows: In [Releases](https://github.com/Coddeus/Pianorium/releases), download pianorium-3.0.exe. Move the .dll installed with an earlier version next to pianorium-3.0.exe (the new one). Run it.
     - Linux: In [Releases](https://github.com/Coddeus/Pianorium/releases), download pianorium-3.0. Run it.
@@ -27,13 +27,12 @@ Compiling from source (supported everywhere):
 - Install [Git](https://git-scm.com/downloads)
 - Install [Rust](https://www.rust-lang.org/tools/install)
 - In a terminal, `git clone https://github.com/Coddeus/Pianorium.git`
-- Setup [SDL2 for Rust](https://github.com/Rust-SDL2/rust-sdl2)
 - Download ffmpeg dynamic libraries for your system. You have two options:  
     1. [Harder, way longer] Compile ffmpeg from [source](https://ffmpeg.org/releases/ffmpeg-6.0.tar.xz), enabling shared libraries, libx264, and the (default) AV* and SW* components, or
     2. [Easier] Download prebuilt versions of ffmpeg libraries, depending on your platform:  
         - Windows: [From gyan.dev](https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z)
-        - MacOS: [Brew](https://formulae.brew.sh/formula/ffmpeg) ffmpeg libraries.
-        - Linux: Install ffmpeg libraries from your package manager, for .so files. [Ubuntu](https://launchpad.net/ubuntu/+source/ffmpeg), [Debian](https://tracker.debian.org/pkg/ffmpeg), [Fedora/Red Hat enterprise](https://rpmfusion.org/)
+        - MacOS: [Brew](https://formulae.brew.sh/formula/ffmpeg) ffmpeg libraries. (`brew install pkg-config ffmpeg`)
+        - Linux: Install ffmpeg libraries with your package manager. [Ubuntu](https://launchpad.net/ubuntu/+source/ffmpeg), [Debian](https://tracker.debian.org/pkg/ffmpeg), [Fedora/Red Hat enterprise](https://rpmfusion.org/)
 
 ## Using
 

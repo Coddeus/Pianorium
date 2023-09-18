@@ -113,6 +113,9 @@ impl Pianorium {
         #[cfg(debug_assertions)]
         let time = Instant::now();
 
+        #[cfg(target_os = "linux")]
+        std::env::set_var("SDL_VIDEO_X11_VISUALID", "");
+
         let sdl = sdl2::init().unwrap();
         let video_subsystem = sdl.video().unwrap();
         let gl_attr = video_subsystem.gl_attr();
