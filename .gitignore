@@ -39,6 +39,9 @@ ffmpeg
 SDL2-2.28.2
 *.dll
 
-# icon (doesn't work)
+# Icon linking (doesn't work)
 *.rc
 *.res
+
+# Include
+!icon/icon.png
