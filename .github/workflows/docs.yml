@@ -5,6 +5,7 @@ on:
     paths:
       - 'book.toml'
       - 'docs/**'
+      - '.github/workflows/docs.yml'
 
   workflow_dispatch:
 
