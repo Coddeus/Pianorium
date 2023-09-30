@@ -19,7 +19,6 @@ pub struct Parameters {
     pub bytes: usize,
     pub max_cores: usize,
     pub max_time: f32,
-    pub index_file: PathBuf,
 
     pub width: usize,
     pub height: usize,
@@ -102,11 +101,10 @@ impl Default for Parameters {
         let particle_density: u32 = 3000;
         let preview_speed: f32 = 1.0;
         let midi_file: PathBuf = PathBuf::from("input.mid");
-        let mkv_file: String = String::from("output.mkv");
+        let mkv_file: String = String::from("output.avi");
         let png_file: PathBuf = PathBuf::from("output.png");
         let x264_preset: String = "medium".to_owned();
         let clear_dir: bool = false;
-        let index_file: PathBuf = PathBuf::from("pianorium_index.txt");
         let ol_color: Hsva = Hsva {
             h: 0.2,
             s: 0.3,
@@ -253,7 +251,6 @@ impl Default for Parameters {
             bytes,
             max_cores,
             max_time,
-            index_file,
 
             width,
             height,

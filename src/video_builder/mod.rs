@@ -107,8 +107,6 @@ impl VideoBuilder {
         context.set_format(output_format);
         context.set_width(options.resolution_out.0);
         context.set_height(options.resolution_out.1);
-        context.set_max_b_frames(80);
-        context.set_gop(240);
         context.set_time_base(options.video_time_base);
 
         let mut flags = codec::Flags::empty();

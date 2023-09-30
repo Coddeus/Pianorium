@@ -1,0 +1,6 @@
+[book]
+authors = ["Coddeus"]
+language = "en"
+multilingual = false
+src = "docs"
+title = "Pianorium"
