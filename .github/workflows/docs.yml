@@ -2,6 +2,8 @@ name: Deploy mdBook site to Pages
 
 on:
   push:
+    branches:
+      - release
     paths:
       - 'book.toml'
       - 'docs/**'
