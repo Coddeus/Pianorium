@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 extern crate egui_sdl2_gl;
 extern crate ffmpeg_next as ff;
@@ -13,7 +13,7 @@ pub use parameters::Parameters;
 pub mod layout;
 pub use layout::{BLACK, LAYOUT};
 pub mod video_builder;
-pub use video_builder::VideoBuilder;
+pub use video_builder::{VideoBuilder, video_options::VideoOptions};
 
 use native_dialog::FileDialog;
 /// Creates a new `Pianorium`, plays the chosen song, renders it, and ends.
@@ -80,8 +80,6 @@ use midly::{
 };
 
 use rand::{thread_rng, Rng};
-
-use crate::video_builder::video_options::VideoOptions;
 
 /// The full application.
 pub struct Pianorium {
@@ -152,8 +150,11 @@ impl Pianorium {
 
         let vbo: Vbo = Vbo::gen();
         let vao: Vao = Vao::gen();
-        vao.set();
         let ibo: Ibo = Ibo::gen();
+
+        vbo.bind();
+        ibo.bind();
+        vao.set();
 
         let gui: Gui = Gui::new(&window).unwrap();
 
@@ -215,8 +216,8 @@ impl Pianorium {
                 .begin_frame(self.gui.egui_state.input.take());
 
             self.vbo.set(&self.notes.vert);
-            self.vao.set();
             self.ibo.set(&self.notes.ind);
+            self.vao.set();
             self.p.program.set_used();
             // Try putting them in egui…….changed() {  } ?
             unsafe {
@@ -478,7 +479,7 @@ impl Pianorium {
         let mut encoder = VideoBuilder::new(options, &self.p.x264_preset).unwrap();
         encoder.start_encoding().unwrap();
 
-        let pbo = Pbo::gen();
+        let pbo = [Pbo::gen(), Pbo::gen()];
 
         unsafe {
             gl::Uniform1f(self.p.u_time.id, self.p.time);
@@ -523,7 +524,7 @@ impl Pianorium {
         let time = Instant::now();
 
         fbo.bind(gl::FRAMEBUFFER, fbo.s);
-        pbo.set(self.p.bytes); // 2 parallel PBOs ?
+        pbo[0].set(self.p.bytes);
         unsafe {
             gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
         }
@@ -535,7 +536,7 @@ impl Pianorium {
         #[cfg(debug_assertions)]
         let time = Instant::now();
 
-        data_ptr[0] = pbo.map().cast();
+        data_ptr[0] = pbo[0].map().cast();
 
         #[cfg(debug_assertions)]
         println!("Map ptr: {:?}", data_ptr[0]);
@@ -544,7 +545,7 @@ impl Pianorium {
         #[cfg(debug_assertions)]
         let time = Instant::now();
 
-        pbo.unmap();
+        pbo[0].unmap();
 
         #[cfg(debug_assertions)]
         println!("Unmap: {:?}", time.elapsed());
@@ -589,7 +590,7 @@ impl Pianorium {
         println!("Blit: {:?}", time.elapsed());
 
         #[cfg(debug_assertions)]
-        println!("Frame {:06}: {:?}\n", 0, init_time.elapsed());
+        println!("-------------------- Frame {:06}: {:?}\n", 0, init_time.elapsed());
 
         'record: loop {
             let full_time = Instant::now();
@@ -601,11 +602,18 @@ impl Pianorium {
                 }
             }
 
+            let encodeindex = self.frame_count % 2;
+            let readindex = (self.frame_count + 1) % 2;
+            #[cfg(debug_assertions)]
+            println!("Encode pointer: {:?}", data_ptr[encodeindex]);
+            #[cfg(debug_assertions)]
+            println!("Read pointer: {:?}", data_ptr[readindex]);
+
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
             fbo.bind(gl::FRAMEBUFFER, fbo.s);
-            pbo.set(self.p.bytes); // 2 parallel PBOs ?
+            pbo[readindex].set(self.p.bytes);
             unsafe {
                 gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
             }
@@ -617,13 +625,6 @@ impl Pianorium {
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            let encodeindex = self.frame_count % 2;
-            let readindex = (self.frame_count + 1) % 2;
-            #[cfg(debug_assertions)]
-            println!("Encode pointer: {:?}", data_ptr[encodeindex]);
-            #[cfg(debug_assertions)]
-            println!("Read pointer: {:?}", data_ptr[readindex]);
-
             encoder
                 .push_video_data(unsafe { from_raw_parts(data_ptr[encodeindex], self.p.bytes) })
                 .unwrap();
@@ -634,7 +635,7 @@ impl Pianorium {
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            data_ptr[readindex] = pbo.map().cast();
+            data_ptr[readindex] = pbo[readindex].map().cast();
 
             #[cfg(debug_assertions)]
             println!("Map ptr: {:?}", data_ptr[readindex]);
@@ -707,14 +708,14 @@ impl Pianorium {
             #[cfg(debug_assertions)]
             let time = Instant::now();
 
-            pbo.unmap();
+            pbo[readindex].unmap();
 
             #[cfg(debug_assertions)]
             println!("Unmap: {:?}", time.elapsed());
 
             self.frame_count += 1;
 
-            println!("Frame {:06}: {:?}", self.frame_count, full_time.elapsed());
+            println!("-------------------- Frame {:06}: {:?}\n", self.frame_count, full_time.elapsed());
         }
 
         encoder.finish_encoding().unwrap();
@@ -835,7 +836,7 @@ impl Pianorium {
                         Some(path) => path,
                         None => return,
                     };
-                    println!("{:?}", path);
+                    println!("Opening midi file: {:?}", path);
                     
                     self.p.midi_file = path;
                     (self.notes, self.p.max_time) =
@@ -1242,7 +1243,6 @@ impl Notes {
         let numbytes: usize = file
             .read_to_end(&mut buf)
             .expect("\nMidi file could not be read.");
-        #[cfg(debug_assertions)]
         print!("\nReading {}-byte midi file ", numbytes);
         let midi_data = Smf::parse(&buf).unwrap();
 
@@ -2064,9 +2064,7 @@ pub fn create_program() -> Result<Program, &'static str> {
     let shader_program = Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
     shader_program.set_used();
 
-    Ok(Program {
-        id: shader_program.id,
-    })
+    Ok(shader_program)
 }
 
 /// An OpenGL uniform, used by shaders for customization
