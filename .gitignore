@@ -46,3 +46,6 @@ SDL2-2.28.2
 # Include
 !icon/icon.png
 !screenshots/*
+
+# mdbook
+/book/
