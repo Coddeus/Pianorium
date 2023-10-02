@@ -38,7 +38,7 @@ Compiling from source (supported everywhere):
 
 Once you run Pianorium, it will prompt you to choose the .mid file you want to convert to a video. You can always change it within the app.
 
-Then choose each available parameter (soon documented) inside the real-time preview.
+Then choose each available parameter inside the real-time preview. This is documented in [the book](https://coddeus.github.io/Pianorium/).
 
 Click "`✨ Start rendering!`"  or close the window, to start the rendering. 
 
