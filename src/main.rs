@@ -2075,10 +2075,8 @@ pub struct Uniform {
 impl Uniform {
     pub fn new(shader: u32, name: &str) -> Result<Self, &'static str> {
         let cname: CString = CString::new(name).expect("CString::new failed");
-        let location: GLint;
-        unsafe {
-            location = gl::GetUniformLocation(shader, cname.as_ptr());
-        }
+        let location: GLint = unsafe { gl::GetUniformLocation(shader, cname.as_ptr()) };
+        if location==-1 { return Err("Couldn't get uniform location"); }
         Ok(Uniform { id: location })
     }
 }
