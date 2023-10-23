@@ -6,9 +6,9 @@ in VS_OUTPUT {
 } IN;
 out vec4 Color;
 
-uniform float u_time;
+// uniform float u_time;
 uniform float u_particle_transparency;
-uniform vec2 u_resolution;
+// uniform vec2 u_resolution;
 uniform vec3 u_ol_color;
 uniform vec3 u_note_left;
 uniform vec3 u_note_right;
@@ -29,7 +29,7 @@ mat2 rotate(float angle)
 
 void main()
 {
-    vec2 uv = vec2(u_resolution.x*IN.Position.x, u_resolution.y*IN.Position.y); 
+    // vec2 uv = vec2(u_resolution.x*IN.Position.x, u_resolution.y*IN.Position.y); 
 
     // Note border
     if (IN.Color == 1.0) {

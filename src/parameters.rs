@@ -58,8 +58,8 @@ pub struct Parameters {
     pub particle_bottom: Hsva,
     pub particle_transparency: f32,
 
-    pub u_time: Uniform,
-    pub u_resolution: Uniform,
+    // pub u_time: Uniform,
+    // pub u_resolution: Uniform,
     pub u_vflip: Uniform,
     pub u_ol_color: Uniform,
     pub u_note_left: Uniform,
@@ -172,9 +172,9 @@ impl Default for Parameters {
         };
         let particle_transparency: f32 = 0.5;
 
-        let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
+        // let u_time: Uniform = Uniform::new(program.id, "u_time").unwrap();
         let u_vflip: Uniform = Uniform::new(program.id, "u_vflip").unwrap();
-        let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
+        // let u_resolution: Uniform = Uniform::new(program.id, "u_resolution").unwrap();
         let u_ol_color: Uniform = Uniform::new(program.id, "u_ol_color").unwrap();
         let u_note_left: Uniform = Uniform::new(program.id, "u_note_left").unwrap();
         let u_note_right: Uniform = Uniform::new(program.id, "u_note_right").unwrap();
@@ -188,9 +188,9 @@ impl Default for Parameters {
             Uniform::new(program.id, "u_particle_transparency").unwrap();
 
         unsafe {
-            gl::Uniform1f(u_time.id, 0.0);
+            // gl::Uniform1f(u_time.id, 0.0);
             gl::Uniform1i(u_vflip.id, vflip as i32);
-            gl::Uniform2f(u_resolution.id, width as f32, height as f32);
+            // gl::Uniform2f(u_resolution.id, width as f32, height as f32);
             gl::Uniform3f(
                 u_ol_color.id,
                 ol_color.to_rgb()[0],
@@ -289,9 +289,9 @@ impl Default for Parameters {
             particle_bottom,
             particle_transparency,
 
-            u_time,
+            // u_time,
             u_vflip,
-            u_resolution,
+            // u_resolution,
             u_ol_color,
             u_note_left,
             u_note_right,

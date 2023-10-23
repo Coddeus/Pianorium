@@ -222,7 +222,7 @@ impl Pianorium {
             // Try putting them in egui…….changed() {  } ?
             unsafe {
                 gl::ClearColor(rgb[0], rgb[1], rgb[2], 1.0);
-                gl::Uniform1f(self.p.u_time.id, self.p.time);
+                // gl::Uniform1f(self.p.u_time.id, self.p.time);
                 gl::Uniform1i(self.p.u_vflip.id, self.p.vflip as i32);
                 gl::Uniform3f(
                     self.p.u_ol_color.id,
@@ -482,7 +482,7 @@ impl Pianorium {
         let pbo = [Pbo::gen(), Pbo::gen()];
 
         unsafe {
-            gl::Uniform1f(self.p.u_time.id, self.p.time);
+            // gl::Uniform1f(self.p.u_time.id, self.p.time);
         }
 
         #[cfg(debug_assertions)]
@@ -551,7 +551,7 @@ impl Pianorium {
         println!("Unmap: {:?}", time.elapsed());
 
         unsafe {
-            gl::Uniform1f(self.p.u_time.id, self.p.time);
+            // gl::Uniform1f(self.p.u_time.id, self.p.time);
         }
 
         #[cfg(debug_assertions)]
@@ -651,7 +651,7 @@ impl Pianorium {
                 break 'record;
             }
             unsafe {
-                gl::Uniform1f(self.p.u_time.id, self.p.time);
+                // gl::Uniform1f(self.p.u_time.id, self.p.time);
             }
 
             #[cfg(debug_assertions)]
